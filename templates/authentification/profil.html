@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <div class="profile-card mx-auto p-4 shadow-lg">
+        
+        <h2 class="text-center mb-4 title-profile">Mon compte</h2>
+
+        <div class="info-box p-3 mb-4">
+            <p><strong>Nom d'utilisateur :</strong> {{ user.username }}</p>
+            <p><strong>Email :</strong> {{ user.email }}</p>
+        </div>
+
+        <div class="d-flex flex-column gap-3">
+
+           
+
+            <form action="/utilisateur/supprimer/" method="post">
+                {% csrf_token %}
+                <button type="submit"
+                        class="btn btn-outline-danger w-100 py-2"
+                        onclick="return confirm('Supprimer votre compte définitivement ?');">
+                    Supprimer mon compte
+                </button>
+            </form>
+
+            <a href="/signout" class="btn btn-outline-light w-100 py-2">
+                Déconnexion
+            </a>
+
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

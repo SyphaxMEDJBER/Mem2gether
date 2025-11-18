@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="room-header">
+    <strong>Salon #</strong>
+    <span class="room-code" id="room-code">{{ room_id }}</span>
+    <p id="room-timer" class="text-muted"></p>
+    <p class="text-muted">Partage ce code pour inviter d'autres participants</p>
+</div>
+
+<div class="room-wrapper">
+
+    <!-- Sidebar -->
+    <div class="room-sidebar">
+        <h5>Participants</h5>
+        <ul class="list-group" id="participants-list">
+            {% for participant in room.participants.all|dictsort:"user.username" %}
+                {% if not participant.exclu %}
+                <li class="list-group-item participant-item"
+                    data-user-id="{{ participant.user.id }}"
+                    data-user-name="{{ participant.user.username }}">
+                    <div>{{ participant.user.username }}</div>
+                    <div class="d-flex align-items-center gap-2">
+                        {% if participant.user == room.creator %}
+                            <span class="badge bg-warning text-dark">⭐</span>
+                        {% endif %}
+                        {% if participant.user == request.user %}
+                            <small class="text-muted">moi</small>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+
+        <div id="host-video-container"></div>
+    </div>
+
+    <!-- MAIN PANEL -->
+    <div class="room-main">
+
+        {% if is_creator %}
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+            <button id="dark-mode-toggle" class="btn btn-outline-primary">🎬 Mode visionnage</button>
+            <button id="photos-mode-btn" class="mode-btn active">Mode Photos</button>
+            <button id="youtube-mode-btn" class="mode-btn">Mode YouTube</button>
+        </div>
+        {% endif %}
+
+        <!-- PHOTOS section -->
+        <div id="photos-section" class="content-section active">
+
+            <div class="sync-image-wrapper">
+                <img id="sync-image" />
+                {% if is_creator %}
+                <div class="image-nav-buttons">
+                    <button class="btn-nav" id="prev-image-btn">←</button>
+                    <button class="btn-nav" id="play-pause-btn">
+                        <span id="play-pause-icon">⏸</span>
+                    </button>
+                    <button class="btn-nav" id="next-image-btn">→</button>
+                </div>
+
+                <div class="image-controls">
+                    <button id="fullscreen-btn" class="icon-btn">⛶</button>
+                </div>
+                {% endif %}
+
+                <div class="reaction-container">
+                    <button class="reaction-btn" data-reaction="❤️">❤️</button>
+                    <button class="reaction-btn" data-reaction="👍">👍</button>
+                    <button class="reaction-btn" data-reaction="😂">😂</button>
+                    <button class="reaction-btn" data-reaction="😮">😮</button>
+                </div>
+
+                <div class="reaction-display" id="reaction-display"></div>
+            </div>
+
+            <div class="d-flex gap-2 mb-3">
+                <input type="file" id="image-upload" multiple>
+                <button class="btn btn-primary" id="upload-btn">Uploader les images</button>
+            </div>
+
+            <div class="queue-list">
+                <h4>File d'attente</h4>
+                <div id="queue-items"></div>
+            </div>
+
+        </div>
+
+
+        <!-- YOUTUBE section -->
+        <div id="youtube-section" class="content-section">
+
+            {% if is_creator %}
+            <div class="mb-3">
+                <input type="text" id="youtube-url-input" class="form-control" placeholder="Colle une URL YouTube ici">
+                <button id="youtube-share-btn" class="btn btn-outline-success mt-2">Diffuser</button>
+            </div>
+            {% endif %}
+
+            <div id="youtube-waiting" class="text-center p-5">
+                <h2>En attente d'une vidéo YouTube...</h2>
+                <p>Veuillez patienter pendant que le modérateur choisit une vidéo</p>
+                <img src="/media/background_room_youtube.png" width="340">
+            </div>
+
+            <div id="youtube-player-container"></div>
+        </div>
+
+    </div>
+</div>
+
+{% if is_creator %}
+<div class="position-fixed" style="bottom: 90px; left: 20px;">
+    <button id="start-presentation-btn" class="btn btn-warning">Démarrer Présentation</button>
+    <button id="stop-presentation-btn" class="btn btn-outline-danger" style="display:none;">Arrêter Présentation</button>
+</div>
+{% endif %}
+
+<form method="POST" action="{% url 'leave_room' room.room_id %}"
+      class="position-fixed" style="bottom:20px; left:20px;">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Quitter la room</button>
+</form>
+
+<!-- Chat -->
+<div class="chat-container" id="chatContainer">
+    <div class="chat-header">Chat</div>
+    <div class="chat-messages" id="chat-box"></div>
+    <div class="chat-input-container">
+        <input id="chat-input" class="form-control" placeholder="Tape un message…">
+        <button id="send-chat-btn" class="btn btn-primary">Envoyer</button>
+    </div>
+</div>
+
+<button id="open-chat-btn" class="chat-open-btn">
+    💬
+</button>
+
+<div id="creator-popup" class="creator-popup">
+    <form method="POST" id="set-creator-form" action="{% url 'change_creator' room.room_id %}">
+        {% csrf_token %}
+        <input type="hidden" id="creator-user-id" name="user_id">
+        <button class="btn btn-outline-primary btn-sm">⭐ Promouvoir</button>
+    </form>
+
+    <form method="POST" id="kick-user-form" action="{% url 'kick_user' room.room_id %}">
+        {% csrf_token %}
+        <input type="hidden" id="kick-user-id" name="user_id">
+        <button class="btn btn-outline-danger btn-sm">❌ Exclure</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<!-- Ton JavaScript COMPLET -->
+<script>
+{{ block.super }}
+
+</script>
+
+{% endblock %}
