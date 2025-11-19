@@ -1,0 +1,63 @@
+from django.db import models
+from django.contrib.auth.models import User
+
+
+class Room(models.Model):
+    """
+    Salle de visionnage (structure minimale).
+    Servira plus tard avec le bot et les fonctionnalités avancées.
+    """
+    MODE_CHOICES = (
+        ("photos", "Photos"),
+        ("youtube", "YouTube"),
+    )
+
+    room_id = models.CharField(
+        max_length=20,
+        unique=True,
+        primary_key=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    creator = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="created_rooms",
+    )
+    password = models.CharField(max_length=20, blank=True)
+    mode = models.CharField(
+        max_length=10,
+        choices=MODE_CHOICES,
+        default="photos",
+    )
+
+    def __str__(self):
+        return f"Room #{self.room_id} (par {self.creator.username})"
+
+
+class ImageQueue(models.Model):
+    """
+    File d'images à afficher dans une room.
+    C'est la base pour le futur bot d'extraction d'images.
+    """
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="image_queue",
+    )
+    image_url = models.URLField()
+    position = models.PositiveIntegerField()
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_displayed = models.BooleanField(default=False)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    image_hash = models.CharField(max_length=64, blank=True, null=True)
+
+    class Meta:
+        ordering = ["position"]
+
+    def __str__(self):
+        return f"Image {self.position} dans {self.room.room_id}"
