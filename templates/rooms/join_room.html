@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 500px;">
+
+    <h2 class="text-center mb-4">Rejoindre une room</h2>
+
+    <form method="POST" action="{% url 'join_room' %}">
+        {% csrf_token %}
+        <input type="text" name="room_id" class="form-control mb-3" placeholder="Code de la room" required>
+
+        <button class="btn btn-primary w-100">
+            Rejoindre
+        </button>
+    </form>
+
+</div>
+{% endblock %}

@@ -3,6 +3,9 @@ from django.contrib.auth.decorators import login_required
 from .models import Room
 import secrets
 
+# ---------------------------------------------------------
+# 1) CRÉER UNE ROOM
+# ---------------------------------------------------------
 @login_required
 def create_room(request):
     room_id = secrets.token_hex(4)
@@ -14,6 +17,18 @@ def create_room(request):
 
     return redirect("room_view", room_id=room_id)
 
+
+# ---------------------------------------------------------
+# 2) PAGE POUR RENSEIGNER LE CODE D’UNE ROOM  (GET)
+# ---------------------------------------------------------
+@login_required
+def join_room_page(request):
+    return render(request, "rooms/join_room.html")
+
+
+# ---------------------------------------------------------
+# 3) TRAITEMENT DU FORMULAIRE POUR REJOINDRE (POST)
+# ---------------------------------------------------------
 @login_required
 def join_room(request):
     if request.method == "POST":
@@ -22,13 +37,18 @@ def join_room(request):
         try:
             Room.objects.get(room_id=room_id)
             return redirect("room_view", room_id=room_id)
+
         except Room.DoesNotExist:
-            return render(request, "rooms/room.html", {
+            return render(request, "rooms/join_room.html", {
                 "error": "Cette room n'existe pas."
             })
 
-    return redirect("/")
+    return redirect("join_room_page")
 
+
+# ---------------------------------------------------------
+# 4) AFFICHAGE D’UNE ROOM
+# ---------------------------------------------------------
 @login_required
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
