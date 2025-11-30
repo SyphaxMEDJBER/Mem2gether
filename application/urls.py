@@ -31,4 +31,11 @@ urlpatterns = [
 
     # URLs d'authentification sous /auth/...
     path("auth/", include("authentification.urls")),
+
+
+
+    path("rooms/", include("rooms.urls")),
+
+
+    
 ]
