@@ -9,72 +9,22 @@
         <h2 class="signin-title fw-bold mb-4">Connexion</h2>
 
         {% if messages %}
-            <div class="signin-messages mb-3">
-                {% for message in messages %}
-                    <p class="text-danger fw-semibold">{{ message }}</p>
-                {% endfor %}
-            </div>
+            {% for message in messages %}
+                <p class="text-danger">{{ message }}</p>
+            {% endfor %}
         {% endif %}
 
-        <form id="login-form" action="{% url 'signin' %}" method="post">
+        <form method="POST">
             {% csrf_token %}
 
-            <div class="mb-3">
-                <input type="text" name="username"
-                       class="form-control signin-input"
-                       placeholder="Nom d’utilisateur" required>
-            </div>
+            {{ form.as_p }}
 
-            <div class="mb-4">
-                <input type="password" name="password"
-                       class="form-control signin-input"
-                       placeholder="Mot de passe" required>
-            </div>
-
-            <button type="button" id="open-cgu"
-                class="signin-btn">
+            <button type="submit" class="signin-btn">
                 Se connecter
             </button>
         </form>
 
-        <p class="mt-4 mb-0 signin-register">
-            Vous n’avez pas de compte ?
-            <a href="/?show_signup=true">Inscrivez-vous</a>
-        </p>
-
     </div>
 </div>
-
-
-<!-- Popup CGU -->
-<div id="cgu-popup" class="cgu-overlay">
-  <div class="cgu-box">
-    <h4 class="fw-semibold mb-3">Conditions Générales d’Utilisation</h4>
-
-    <p class="cgu-text">
-      En utilisant cette plateforme, vous acceptez de respecter les CGU.<br>
-      Vos données sont confidentielles, et le respect est primordial.<br>
-      Cette plateforme est réservée à un usage personnel.
-    </p>
-
-    <div class="d-flex justify-content-between align-items-center mt-4">
-        <a href="{% url 'cgu' %}" target="_blank">En savoir +</a>
-        <button id="accept-cgu" class="btn btn-success px-4 py-2 rounded-pill fw-semibold">
-            J’accepte
-        </button>
-    </div>
-  </div>
-</div>
-
-
-<script>
-  document.getElementById("open-cgu").addEventListener("click", function () {
-    document.getElementById("cgu-popup").style.display = "flex";
-  });
-
-  document.getElementById("accept-cgu").addEventListener("click", function () {
-    document.getElementById("login-form").submit();
-  });
-</script>
 
 {% endblock %}
