@@ -5,12 +5,12 @@
 
 <div class="hero">
     <div class="hero-overlay"></div>
-    <div class="hero-content text-center">
-        <h1 class="display-4 fw-bold mb-3">Regardez Ensemble.</h1>
-
-        <a href="/signin" class="btn btn-primary btn-lg px-4 me-2">Commencer</a>
+    <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-4">
+        <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
         <a href="/signup" class="btn btn-outline-light btn-lg px-4">Créer un compte</a>
+        <a href="/rooms/join" class="btn btn-outline-light btn-lg px-4">Rejoindre une room</a>
     </div>
+
 </div>
 
 <div class="container py-5">
@@ -41,5 +41,52 @@
 
     </div>
 </div>
+<!-- Popup rejoindre room -->
+<div id="join-room-popup"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+            justify-content:center; align-items:center; z-index:9999;">
+
+    <div style="background:#111118; padding:30px; border-radius:12px; width:90%; max-width:400px;
+                box-shadow:0 0 20px rgba(124,58,237,0.4);">
+
+        <h4 class="text-center mb-3" style="color:#a78bfa;">Rejoindre une room</h4>
+
+        <form method="POST" action="/rooms/join/">
+            {% csrf_token %}
+
+            <input type="text" name="room_id" class="form-control mb-3"
+                   placeholder="Code de la room" required>
+
+            <button class="btn btn-primary w-100">Rejoindre</button>
+        </form>
+
+        <button id="close-join-popup"
+                class="btn btn-outline-light w-100 mt-3">
+            Annuler
+        </button>
+
+    </div>
+</div>
+
+<script>
+    document.getElementById("join-room-btn").addEventListener("click", () => {
+        document.getElementById("join-room-popup").style.display = "flex";
+    });
+
+    document.getElementById("close-join-popup").addEventListener("click", () => {
+        document.getElementById("join-room-popup").style.display = "none";
+    });
+</script>
+
+
+
+
+
+
+
+
+
+
+
 
 {% endblock %}

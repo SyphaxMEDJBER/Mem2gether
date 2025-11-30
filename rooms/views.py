@@ -15,6 +15,21 @@ def create_room(request):
     return redirect("room_view", room_id=room_id)
 
 @login_required
+def join_room(request):
+    if request.method == "POST":
+        room_id = request.POST.get("room_id")
+
+        try:
+            Room.objects.get(room_id=room_id)
+            return redirect("room_view", room_id=room_id)
+        except Room.DoesNotExist:
+            return render(request, "rooms/room.html", {
+                "error": "Cette room n'existe pas."
+            })
+
+    return redirect("/")
+
+@login_required
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
     return render(request, "rooms/room.html", {"room": room})
