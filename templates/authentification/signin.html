@@ -8,21 +8,22 @@
 
         <h2 class="signin-title fw-bold mb-4">Connexion</h2>
 
-        {% if messages %}
-            {% for message in messages %}
-                <p class="text-danger">{{ message }}</p>
-            {% endfor %}
-        {% endif %}
-
         <form method="POST">
             {% csrf_token %}
 
-            {{ form.as_p }}
+            <input type="text" name="username" class="form-control signin-input mb-3"
+                   placeholder="Nom d’utilisateur" required>
 
-            <button type="submit" class="signin-btn">
-                Se connecter
-            </button>
+            <input type="password" name="password" class="form-control signin-input mb-4"
+                   placeholder="Mot de passe" required>
+
+            <button type="submit" class="signin-btn w-100">Se connecter</button>
         </form>
+
+        <p class="mt-4 text-center signin-register">
+            Pas de compte ?
+            <a href="{% url 'signup' %}">Créer un compte</a>
+        </p>
 
     </div>
 </div>
