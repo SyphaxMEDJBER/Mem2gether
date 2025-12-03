@@ -61,3 +61,14 @@ class ImageQueue(models.Model):
 
     def __str__(self):
         return f"Image {self.position} dans {self.room.room_id}"
+
+
+
+
+class Participant(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="participants")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} dans {self.room.room_id}"
