@@ -1,3 +1,4 @@
+from .models import Room, Participant
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Room
@@ -53,3 +54,24 @@ def join_room(request):
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
     return render(request, "rooms/room.html", {"room": room})
+
+
+
+
+
+
+
+
+@login_required
+def room_view(request, room_id):
+    room = Room.objects.get(room_id=room_id)
+
+    # Ajouter l’utilisateur aux participants si pas déjà dedans
+    Participant.objects.get_or_create(room=room, user=request.user)
+
+    participants = room.participants.select_related("user")
+
+    return render(request, "rooms/room.html", {
+        "room": room,
+        "participants": participants
+    })
