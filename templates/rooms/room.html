@@ -67,23 +67,64 @@
         <!-- Boutons mode -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="d-flex gap-2">
-                <button class="mode-btn active" type="button" disabled>Mode Photos</button>
-                <button class="mode-btn" type="button" disabled>Mode YouTube</button>
+                <button id="btn-mode-photos" class="mode-btn active" type="button">Mode Photos</button>
+                <button id="btn-mode-youtube" class="mode-btn" type="button">Mode YouTube</button>
             </div>
 
             <span class="text-muted small">
-                Le changement de mode sera activé plus tard (WebSockets).
+                Le changement de mode est pour l’instant local (JavaScript).  synchroniser plus tard avec WebSockets.
             </span>
         </div>
 
-        <!-- Media principal -->
+        <!-- BLOC PRINCIPAL (centre de la page) -->
         <div class="sync-image-wrapper mb-3">
-            <div class="text-center px-3">
-                <p class="mb-2 text-muted">Contenu synchronisé (photo / vidéo) apparaîtra ici.</p>
+
+            <!-- MODE PHOTOS -->
+            <div id="mode-photos">
+                <div class="text-center px-3">
+                    <p class="mb-2 text-muted">
+                        Contenu synchronisé (photo / vidéo) apparaîtra ici.
+                    </p>
+                </div>
             </div>
+
+            <!-- MODE "YOUTUBE" (FAKE, LECTURE MP4) -->
+            <div id="mode-youtube" class="d-none">
+                <div class="px-3 mb-3">
+                    <p class="mb-2 text-muted">
+                        Colle une URL de <strong>vidéo YouTube</strong> 
+                    </p>
+
+                    <div class="input-group mb-2">
+                        <input type="text"
+                               id="youtube-url-input"
+                               class="form-control"
+                               placeholder="https://www.youtube.com/watch?v=...">
+                        <button class="btn btn-primary" type="button" id="youtube-load-btn">
+                            Charger
+                        </button>
+                    </div>
+
+                    <p class="text-muted small mb-2">
+                       
+                    </p>
+                </div>
+
+                <!-- LECTEUR VIDÉO RÉDUIT ET CENTRÉ -->
+                <div class="video-wrapper text-center mt-3">
+                    <video id="youtube-player"
+                           controls
+                           autoplay
+                           class="video-player">
+                        <source src="https://samplelib.com/lib/preview/mp4/sample-5s.mp4" type="video/mp4">
+                        Votre navigateur ne supporte pas la lecture vidéo.
+                    </video>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Split bottom zone -->
+        <!-- ZONE BASSE : File d'attente / Réactions / Chat -->
         <div class="row g-3">
 
             <!-- FILE D'ATTENTE -->
@@ -100,102 +141,261 @@
             <!-- RÉACTIONS -->
             <div class="col-md-4">
                 <h5 class="mb-2">Réactions</h5>
-                <div class="d-flex gap-2 mb-2">
-                    <button class="reaction-btn" disabled>👍</button>
-                    <button class="reaction-btn" disabled>😂</button>
-                    <button class="reaction-btn" disabled>😮</button>
-                    <button class="reaction-btn" disabled>💔</button>
+
+                <div id="reaction-buttons"
+                     class="d-flex gap-2 mb-2"
+                     data-room-id="{{ room.room_id }}">
+                    <button type="button" class="reaction-btn btn btn-sm btn-outline-light" data-type="like">
+                        👍 <span id="count-like">{{ reaction_counts.like }}</span>
+                    </button>
+                    <button type="button" class="reaction-btn btn btn-sm btn-outline-light" data-type="fun">
+                        😂 <span id="count-fun">{{ reaction_counts.fun }}</span>
+                    </button>
+                    <button type="button" class="reaction-btn btn btn-sm btn-outline-light" data-type="wow">
+                        😮 <span id="count-wow">{{ reaction_counts.wow }}</span>
+                    </button>
+                    <button type="button" class="reaction-btn btn btn-sm btn-outline-light" data-type="love">
+                        ❤️ <span id="count-love">{{ reaction_counts.love }}</span>
+                    </button>
                 </div>
-                <p class="text-muted small">Les réactions en temps réel arrivent plus tard.</p>
+
+                <p class="text-muted small">
+                    Clique sur un emoji pour réagir. Un deuxième clic retire ta réaction.
+                </p>
             </div>
 
-           <!-- CHAT -->
-<div class="col-md-4">
-    <h5 class="mb-2">Chat</h5>
+            <!-- CHAT -->
+            <div class="col-md-4">
+                <h5 class="mb-2">Chat</h5>
 
-    <!-- zone où les messages s'affichent -->
-    <div id="chat-log" class="chat-container p-2 rounded-3 mb-2"
-         style="height: 180px; overflow-y:auto;">
-        <p class="text-muted small">Chat en direct.</p>
-    </div>
+                <!-- zone où les messages s'affichent -->
+                <div id="chat-log" class="chat-container p-2 rounded-3 mb-2"
+                     style="height: 180px; overflow-y:auto;">
+                    <p class="text-muted small">Chat en direct.</p>
+                </div>
 
-    <!-- zone de saisie -->
-    <div class="d-flex gap-2">
-        <input type="text" id="chat-message-input" class="form-control" placeholder="Message...">
-        <button type="button" id="chat-message-submit" class="btn btn-primary">Envoyer</button>
-    </div>
-</div>
+                <!-- zone de saisie -->
+                <div class="d-flex gap-2">
+                    <input type="text" id="chat-message-input" class="form-control" placeholder="Message...">
+                    <button type="button" id="chat-message-submit" class="btn btn-primary">Envoyer</button>
+                </div>
+            </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const log   = document.getElementById("chat-log");
-    const input = document.getElementById("chat-message-input");
-    const btn   = document.getElementById("chat-message-submit");
+        </div>  <!-- fin .row -->
 
-    const roomId = "{{ room.room_id }}";  // tu utilises room.room_id dans le template
+        <!-- STYLE LOCAL POUR LE LECTEUR VIDÉO -->
+        <style>
+            .video-wrapper {
+                display: flex;
+                justify-content: center;
+            }
+            .video-player {
+                width: 60%;
+                max-width: 720px;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 0 16px rgba(0, 0, 0, 0.45);
+                background: #000;
+            }
+            @media (max-width: 768px) {
+                .video-player {
+                    width: 100%;
+                }
+            }
+        </style>
 
-    // On essaie d'ouvrir un WebSocket, mais ce n'est pas obligatoire pour afficher localement
-    let chatSocket = null;
-    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        <!-- SCRIPT CHAT -->
+        <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const log   = document.getElementById("chat-log");
+            const input = document.getElementById("chat-message-input");
+            const btn   = document.getElementById("chat-message-submit");
 
-    try {
-        chatSocket = new WebSocket(
-            protocol + window.location.host + "/ws/rooms/" + roomId + "/"
-        );
+            const roomId = "{{ room.room_id }}";
 
-        chatSocket.onmessage = function (e) {
-            const data = JSON.parse(e.data);
-            appendMessage(data.user + " : " + data.message);
-        };
+            let chatSocket = null;
+            const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
-        chatSocket.onclose = function (e) {
-            console.warn("WebSocket fermé", e);
-        };
-    } catch (err) {
-        console.error("Impossible d'ouvrir le WebSocket :", err);
-    }
+            try {
+                chatSocket = new WebSocket(
+                    protocol + window.location.host + "/ws/rooms/" + roomId + "/"
+                );
 
-    function appendMessage(text) {
-        const p = document.createElement("p");
-        p.className = "mb-1 text-light";
-        p.textContent = text;
-        log.appendChild(p);
-        log.scrollTop = log.scrollHeight;
-    }
+                chatSocket.onmessage = function (e) {
+                    const data = JSON.parse(e.data);
+                    appendMessage(data.user + " : " + data.message);
+                };
 
-    function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
+                chatSocket.onclose = function (e) {
+                    console.warn("WebSocket fermé", e);
+                };
+            } catch (err) {
+                console.error("Impossible d'ouvrir le WebSocket :", err);
+            }
 
-        // Toujours l'afficher pour moi
-        appendMessage("Moi : " + text);
+            function appendMessage(text) {
+                const p = document.createElement("p");
+                p.className = "mb-1 text-light";
+                p.textContent = text;
+                log.appendChild(p);
+                log.scrollTop = log.scrollHeight;
+            }
 
-        // Essayer de l'envoyer aux autres via WebSocket
-        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-            chatSocket.send(JSON.stringify({ "message": text }));
-        } else {
-            console.warn("WebSocket non ouvert → message seulement local");
+            function sendMessage() {
+                const text = input.value.trim();
+                if (!text) return;
+
+                appendMessage("Moi : " + text);
+
+                if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+                    chatSocket.send(JSON.stringify({ "message": text }));
+                } else {
+                    console.warn("WebSocket non ouvert → message seulement local");
+                }
+
+                input.value = "";
+                input.focus();
+            }
+
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                sendMessage();
+            });
+
+            input.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+        </script>
+
+        <!-- SCRIPT CHANGEMENT DE MODE (Photos / YouTube) -->
+        <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const btnPhotos  = document.getElementById("btn-mode-photos");
+            const btnYoutube = document.getElementById("btn-mode-youtube");
+            const photosDiv  = document.getElementById("mode-photos");
+            const youtubeDiv = document.getElementById("mode-youtube");
+
+            function setMode(mode) {
+                if (mode === "photos") {
+                    btnPhotos.classList.add("active");
+                    btnYoutube.classList.remove("active");
+                    photosDiv.classList.remove("d-none");
+                    youtubeDiv.classList.add("d-none");
+                } else {
+                    btnYoutube.classList.add("active");
+                    btnPhotos.classList.remove("active");
+                    youtubeDiv.classList.remove("d-none");
+                    photosDiv.classList.add("d-none");
+                }
+            }
+
+            btnPhotos.addEventListener("click", function () {
+                setMode("photos");
+            });
+
+            btnYoutube.addEventListener("click", function () {
+                setMode("youtube");
+            });
+
+            // Mode par défaut
+            setMode("photos");
+        });
+        </script>
+
+        <!-- SCRIPT "YOUTUBE" -->
+        <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const input  = document.getElementById("youtube-url-input");
+            const button = document.getElementById("youtube-load-btn");
+            const video  = document.getElementById("youtube-player");
+
+            if (!input || !button || !video) return;
+
+            function loadFakeVideo() {
+                const demoUrl = "https://samplelib.com/lib/preview/mp4/sample-5s.mp4";
+                console.log("Lecture vidéo de démo :", demoUrl);
+
+                video.pause();
+                video.src = demoUrl;
+                video.load();
+                video.play().catch((err) => {
+                    console.warn("Lecture auto bloquée :", err);
+                });
+            }
+
+            button.addEventListener("click", function () {
+                loadFakeVideo();
+            });
+
+            input.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    loadFakeVideo();
+                }
+            });
+        });
+        </script>
+
+        <!-- SCRIPT RÉACTIONS -->
+        <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== "") {
+                const cookies = document.cookie.split(";");
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + "=")) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
         }
 
-        input.value = "";
-        input.focus();
-    }
+        document.addEventListener("DOMContentLoaded", function () {
+            const container = document.getElementById("reaction-buttons");
+            if (!container) return;
 
-    btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        sendMessage();
-    });
+            const roomId = container.dataset.roomId;
+            const csrftoken = getCookie("csrftoken");
 
-    input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-});
-</script>
+            document.querySelectorAll(".reaction-btn").forEach((btn) => {
+                btn.addEventListener("click", function () {
+                    const type = this.dataset.type;
 
-        </div>
+                    fetch(`/rooms/${roomId}/react/`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": csrftoken,
+                        },
+                        body: JSON.stringify({ type: type }),
+                    })
+                    .then((response) => {
+                        console.log("Status réaction:", response.status);
+                        return response.json();
+                    })
+                    .then((data) => {
+                        console.log("Réponse JSON:", data);
+                        if (data.counts) {
+                            document.getElementById("count-like").textContent = data.counts.like;
+                            document.getElementById("count-fun").textContent  = data.counts.fun;
+                            document.getElementById("count-wow").textContent  = data.counts.wow;
+                            document.getElementById("count-love").textContent = data.counts.love;
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("Erreur réaction :", err);
+                    });
+                });
+            });
+        });
+        </script>
 
     </section>
 
