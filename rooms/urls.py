@@ -6,4 +6,5 @@ urlpatterns = [
     path("join/", views.join_room_page, name="join_room_page"),
     path("join/submit/", views.join_room, name="join_room"),
     path("<str:room_id>/", views.room_view, name="room_view"),
+    path("<str:room_id>/react/", views.add_reaction, name="add_reaction"),
 ]
