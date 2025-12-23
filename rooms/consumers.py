@@ -1,51 +1,80 @@
-# rooms/consumers.py
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
+from asgiref.sync import sync_to_async
+from django.contrib.auth.models import User
+from .models import Room, Message, Participant
 
 class ChatConsumer(AsyncWebsocketConsumer):
+
     async def connect(self):
-        # récupère le room_id depuis l'URL
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
-        self.group_name = f"room_{self.room_id}"
+        self.group = f"room_{self.room_id}"
 
-        # rejoint le groupe de la room
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
-
+        await self.channel_layer.group_add(self.group, self.channel_name)
         await self.accept()
 
+        user = self.scope["user"]
+        if user.is_authenticated:
+            await sync_to_async(Participant.objects.get_or_create)(
+                room_id=self.room_id, user=user
+            )
+
+            await self.channel_layer.group_send(
+                self.group,
+                {
+                    "type": "participants_update"
+                }
+            )
+
     async def disconnect(self, close_code):
-        # quitte le groupe quand le socket se ferme
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
+        user = self.scope["user"]
+        if user.is_authenticated:
+            await sync_to_async(Participant.objects.filter(
+                room_id=self.room_id, user=user
+            ).delete)()
+
+            await self.channel_layer.group_send(
+                self.group,
+                {
+                    "type": "participants_update"
+                }
+            )
+
+        await self.channel_layer.group_discard(self.group, self.channel_name)
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        message = data.get("message", "")
+        msg = data.get("message")
+        user = self.scope["user"]
 
-        user = (
-            self.scope["user"].username
-            if self.scope["user"].is_authenticated
-            else "Anonyme"
-        )
+        if user.is_authenticated and msg:
+            room = await sync_to_async(Room.objects.get)(room_id=self.room_id)
+            await sync_to_async(Message.objects.create)(
+                room=room, user=user, content=msg
+            )
 
-        # envoie à TOUT le groupe (tous les clients de la room)
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                "type": "chat_message",
-                "message": message,
-                "user": user,
-            }
-        )
+            await self.channel_layer.group_send(
+                self.group,
+                {
+                    "type": "chat_message",
+                    "user": user.username,
+                    "message": msg
+                }
+            )
 
     async def chat_message(self, event):
-        # renvoie vers le navigateur
+        await self.send(text_data=json.dumps(event))
+
+    async def participants_update(self, event):
+        participants = await sync_to_async(
+            lambda: list(
+                Participant.objects.filter(room_id=self.room_id)
+                .select_related("user")
+                .values_list("user__username", flat=True)
+            )
+        )()
+
         await self.send(text_data=json.dumps({
-            "message": event["message"],
-            "user": event["user"],
+            "type": "participants",
+            "participants": participants
         }))

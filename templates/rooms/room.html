@@ -3,7 +3,6 @@
 
 {% block content %}
 
-<!-- HEADER ROOM -->
 <div class="room-header">
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <div class="text-start">
@@ -15,190 +14,158 @@
                 </span>
             </p>
         </div>
-
-        <div class="d-flex align-items-center gap-2">
-            <span class="room-code">Code : {{ room.room_id }}</span>
-        </div>
+        <div><span class="room-code">Code : {{ room.room_id }}</span></div>
     </div>
 </div>
 
-<!-- WRAPPER PRINCIPAL -->
 <div class="room-wrapper">
 
-    <!-- SIDEBAR PARTICIPANTS -->
     <aside class="room-sidebar">
-        <h5 class="mb-3">Participants</h5>
-
-        {% if participants %}
+        <div id="participants-list">
+            <h5 class="mb-3">Participants</h5>
             {% for p in participants %}
-                <div class="participant-item d-flex justify-content-between align-items-center">
+                <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
                     <span class="fw-semibold">{{ p.user.username }}</span>
                     {% if p.user == request.user %}
                         <span class="badge bg-success">Moi</span>
                     {% endif %}
                 </div>
             {% endfor %}
-        {% else %}
-            <p class="text-muted small">Aucun participant.</p>
-        {% endif %}
+        </div>
 
-        <hr class="my-4">
+        <hr class="my-4" />
 
-        <h5 class="mb-2">Infos room</h5>
-        <ul class="list-unstyled text-muted" style="font-size: 0.9rem;">
-            <li>• ID : {{ room.room_id }}</li>
-            <li>• Créateur : {{ room.creator.username }}</li>
-            <li>• Mode :
-                {% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}
-            </li>
-            <li>• Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
-        </ul>
+        <div id="room-info">
+            <h5 class="mb-2">Infos room</h5>
+            <ul class="list-unstyled text-muted small">
+                <li>• ID : {{ room.room_id }}</li>
+                <li>• Créateur : {{ room.creator.username }}</li>
+                <li>• Mode : {% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</li>
+                <li>• Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
+            </ul>
 
-        <div class="leave-room-fixed mt-4">
-            <a href="/" class="btn btn-outline-light w-100">
+            <a href="/rooms/{{ room.room_id }}/leave/" class="btn btn-outline-light w-100 mt-4">
                 Quitter la room
             </a>
         </div>
     </aside>
 
-    <!-- PANEL PRINCIPAL -->
     <section class="room-main">
 
-        <!-- Boutons mode -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="d-flex gap-2">
                 <button class="mode-btn active" type="button" disabled>Mode Photos</button>
                 <button class="mode-btn" type="button" disabled>Mode YouTube</button>
             </div>
-
-            <span class="text-muted small">
-                Le changement de mode sera activé plus tard (WebSockets).
-            </span>
+            <span class="text-muted small">Synchro vidéo bientôt.</span>
         </div>
 
-        <!-- Media principal -->
-        <div class="sync-image-wrapper mb-3">
-            <div class="text-center px-3">
-                <p class="mb-2 text-muted">Contenu synchronisé (photo / vidéo) apparaîtra ici.</p>
-            </div>
+        <div class="sync-image-wrapper mb-3 text-center">
+            <p class="text-muted">Contenu synchronisé apparaîtra ici.</p>
         </div>
 
-        <!-- Split bottom zone -->
         <div class="row g-3">
 
-            <!-- FILE D'ATTENTE -->
             <div class="col-md-4">
                 <h5 class="mb-2">File d’attente</h5>
                 <div class="queue-item">
-                    <div class="flex-grow-1">
-                        <p class="mb-1 fw-semibold">Aucun média</p>
-                        <p class="mb-0 text-muted small">L’ajout sera disponible plus tard.</p>
-                    </div>
+                    <p class="mb-1 fw-semibold">Aucun média</p>
                 </div>
             </div>
 
-            <!-- RÉACTIONS -->
             <div class="col-md-4">
                 <h5 class="mb-2">Réactions</h5>
+
                 <div class="d-flex gap-2 mb-2">
-                    <button class="reaction-btn" disabled>👍</button>
-                    <button class="reaction-btn" disabled>😂</button>
-                    <button class="reaction-btn" disabled>😮</button>
-                    <button class="reaction-btn" disabled>💔</button>
+                    <button class="reaction-btn" data-react="👍">👍</button>
+                    <button class="reaction-btn" data-react="😂">😂</button>
+                    <button class="reaction-btn" data-react="😮">😮</button>
+                    <button class="reaction-btn" data-react="💔">💔</button>
                 </div>
-                <p class="text-muted small">Les réactions en temps réel arrivent plus tard.</p>
+
+                <div id="reaction-display" class="text-warning fw-bold"></div>
             </div>
 
-           <!-- CHAT -->
-<div class="col-md-4">
-    <h5 class="mb-2">Chat</h5>
+            <div class="col-md-4">
+                <h5 class="mb-2">Chat</h5>
 
-    <!-- zone où les messages s'affichent -->
-    <div id="chat-log" class="chat-container p-2 rounded-3 mb-2"
-         style="height: 180px; overflow-y:auto;">
-        <p class="text-muted small">Chat en direct.</p>
-    </div>
+                <div id="chat-log" class="p-2 rounded-3 mb-2"
+                     style="height:180px; overflow-y:auto; background:#222;">
 
-    <!-- zone de saisie -->
-    <div class="d-flex gap-2">
-        <input type="text" id="chat-message-input" class="form-control" placeholder="Message...">
-        <button type="button" id="chat-message-submit" class="btn btn-primary">Envoyer</button>
-    </div>
-</div>
+                    {% for m in messages %}
+                        <p class="mb-1 text-light">
+                            <strong>
+                                {% if m.user %}
+                                    {{ m.user.username }}
+                                {% else %}
+                                    Anonyme
+                                {% endif %}
+                            :</strong> {{ m.content }}
+                        </p>
+                    {% endfor %}
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const log   = document.getElementById("chat-log");
-    const input = document.getElementById("chat-message-input");
-    const btn   = document.getElementById("chat-message-submit");
+                </div>
 
-    const roomId = "{{ room.room_id }}";  // tu utilises room.room_id dans le template
+                <div class="d-flex gap-2">
+                    <input type="text" id="chat-message-input" class="form-control" placeholder="Message..." />
+                    <button id="chat-message-submit" class="btn btn-primary">Envoyer</button>
+                </div>
 
-    // On essaie d'ouvrir un WebSocket, mais ce n'est pas obligatoire pour afficher localement
-    let chatSocket = null;
-    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-
-    try {
-        chatSocket = new WebSocket(
-            protocol + window.location.host + "/ws/rooms/" + roomId + "/"
-        );
-
-        chatSocket.onmessage = function (e) {
-            const data = JSON.parse(e.data);
-            appendMessage(data.user + " : " + data.message);
-        };
-
-        chatSocket.onclose = function (e) {
-            console.warn("WebSocket fermé", e);
-        };
-    } catch (err) {
-        console.error("Impossible d'ouvrir le WebSocket :", err);
-    }
-
-    function appendMessage(text) {
-        const p = document.createElement("p");
-        p.className = "mb-1 text-light";
-        p.textContent = text;
-        log.appendChild(p);
-        log.scrollTop = log.scrollHeight;
-    }
-
-    function sendMessage() {
-        const text = input.value.trim();
-        if (!text) return;
-
-        // Toujours l'afficher pour moi
-        appendMessage("Moi : " + text);
-
-        // Essayer de l'envoyer aux autres via WebSocket
-        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
-            chatSocket.send(JSON.stringify({ "message": text }));
-        } else {
-            console.warn("WebSocket non ouvert → message seulement local");
-        }
-
-        input.value = "";
-        input.focus();
-    }
-
-    btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        sendMessage();
-    });
-
-    input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-});
-</script>
+            </div>
 
         </div>
 
     </section>
 
 </div>
+
+<script>
+const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+const roomId = "{{ room.room_id }}";
+const socket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
+
+socket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    // CHAT
+    if (data.message) {
+        const log = document.getElementById("chat-log");
+        const p = document.createElement("p");
+        p.textContent = data.user + " : " + data.message;
+        log.appendChild(p);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // PARTICIPANTS
+    if (data.type === "participants") {
+        const list = document.getElementById("participants-list");
+        let html = "<h5 class='mb-3'>Participants</h5>";
+
+        data.participants.forEach(name => {
+            if (name === "{{ request.user.username }}") {
+                html += `<div class="participant-item">
+                            ${name} <span class="badge bg-success">Moi</span>
+                         </div>`;
+            } else {
+                html += `<div class="participant-item">${name}</div>`;
+            }
+        });
+
+        list.innerHTML = html;
+    }
+};
+
+document.getElementById("chat-message-submit").onclick = send;
+document.getElementById("chat-message-input").onkeydown = e => {
+    if (e.key === "Enter") send();
+};
+
+function send() {
+    const input = document.getElementById("chat-message-input");
+    if (!input.value.trim()) return;
+    socket.send(JSON.stringify({ message: input.value }));
+    input.value = "";
+}
+</script>
 
 {% endblock %}

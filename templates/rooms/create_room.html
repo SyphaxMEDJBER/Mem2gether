@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="container py-5" style="max-width: 500px;">
+
+    <h2 class="text-center mb-4">Créer une room</h2>
+
+    <form method="POST" action="{% url 'create_room' %}">
+        {% csrf_token %}
+
+        <button class="btn btn-success w-100 py-2">
+            Créer une nouvelle room
+        </button>
+    </form>
+
+</div>
+
+{% endblock %}

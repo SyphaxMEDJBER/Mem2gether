@@ -1,47 +1,70 @@
 from django.shortcuts import render, redirect
+from django.contrib.auth.models import User
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
-from django.contrib import messages
-
-from .forms import SignUpForm
 
 
-def signup_view(request):
+def signup(request):
     if request.method == "POST":
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect("home")
-    else:
-        form = SignUpForm()
+        username = request.POST.get("username")
+        email = request.POST.get("email")
+        password1 = request.POST.get("password1")
+        password2 = request.POST.get("password2")
 
-    return render(request, "authentification/signup.html", {"form": form})
+        if password1 != password2:
+            messages.error(request, "Les mots de passe ne correspondent pas.")
+            return redirect("signup")
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Nom d'utilisateur déjà utilisé.")
+            return redirect("signup")
+
+        if User.objects.filter(email=email).exists():
+            messages.error(request, "Email déjà utilisé.")
+            return redirect("signup")
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password1
+        )
+        user.save()
+
+        login(request, user)
+        return redirect("home")
+
+    return render(request, "authentification/signup.html")
 
 
-def signin_view(request):
+def signin(request):
     if request.method == "POST":
-        form = AuthenticationForm(request, data=request.POST)
+        username = request.POST.get("username")
+        password = request.POST.get("password")
 
-        if form.is_valid():
-            login(request, form.get_user())
-            return redirect("home")
+        user = authenticate(request, username=username, password=password)
 
-        else:
-            messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
-            
-    else:
-        form = AuthenticationForm()
+        if user is None:
+            messages.error(request, "Identifiants invalides.")
+            return redirect("signin")
 
-    return render(request, "authentification/signin.html", {"form": form})
+        login(request, user)
+        return redirect("home")
+
+    return render(request, "authentification/signin.html")
 
 
-def logout_view(request):
+def signout(request):
     logout(request)
     return redirect("home")
 
 
+
+
+
+
 @login_required
 def profil_view(request):
-    return render(request, "authentification/profil.html")
+    return render(request, "authentification/profil.html", {
+        "user": request.user
+    })
