@@ -118,54 +118,63 @@
     </section>
 
 </div>
-
 <script>
-const protocol = location.protocol === "https:" ? "wss://" : "ws://";
-const roomId = "{{ room.room_id }}";
-const socket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
+document.addEventListener("DOMContentLoaded", () => {
 
-socket.onmessage = function(e) {
-    const data = JSON.parse(e.data);
+    const currentUser = "{{ request.user.username }}";
 
-    // CHAT
-    if (data.message) {
-        const log = document.getElementById("chat-log");
-        const p = document.createElement("p");
-        p.textContent = data.user + " : " + data.message;
-        log.appendChild(p);
-        log.scrollTop = log.scrollHeight;
-    }
+    const socket = new WebSocket(
+        (location.protocol === "https:" ? "wss://" : "ws://")
+        + location.host + "/ws/rooms/{{ room.room_id }}/"
+    );
 
-    // PARTICIPANTS
-    if (data.type === "participants") {
-        const list = document.getElementById("participants-list");
-        let html = "<h5 class='mb-3'>Participants</h5>";
+    socket.onmessage = e => {
+        const data = JSON.parse(e.data);
 
-        data.participants.forEach(name => {
-            if (name === "{{ request.user.username }}") {
-                html += `<div class="participant-item">
-                            ${name} <span class="badge bg-success">Moi</span>
-                         </div>`;
-            } else {
-                html += `<div class="participant-item">${name}</div>`;
-            }
-        });
+        if (data.type === "participants") {
+            const list = document.getElementById("participants-list");
+            let html = "<h5 class='mb-3'>Participants</h5>";
 
-        list.innerHTML = html;
-    }
-};
+            data.participants.forEach(u => {
+                if (u === currentUser) {
+                    html += `
+                        <div class="participant-item d-flex justify-content-between">
+                            <span>${u}</span>
+                            <span class="badge bg-success">Moi</span>
+                        </div>`;
+                } else {
+                    html += `
+                        <div class="participant-item">
+                            ${u}
+                        </div>`;
+                }
+            });
 
-document.getElementById("chat-message-submit").onclick = send;
-document.getElementById("chat-message-input").onkeydown = e => {
-    if (e.key === "Enter") send();
-};
+            list.innerHTML = html;
+        }
 
-function send() {
-    const input = document.getElementById("chat-message-input");
-    if (!input.value.trim()) return;
-    socket.send(JSON.stringify({ message: input.value }));
-    input.value = "";
-}
+        if (data.type === "room_closed") {
+            window.location.href = "/";
+        }
+
+        if (data.type === "chat") {
+            const log = document.getElementById("chat-log");
+            const p = document.createElement("p");
+            p.innerHTML = "<strong>" + data.user + " :</strong> " + data.message;
+            log.appendChild(p);
+            log.scrollTop = log.scrollHeight;
+        }
+    };
+
+    document.getElementById("chat-message-submit").onclick = () => {
+        const input = document.getElementById("chat-message-input");
+        if (!input.value.trim()) return;
+        socket.send(JSON.stringify({ message: input.value }));
+        input.value = "";
+    };
+
+});
 </script>
+
 
 {% endblock %}
