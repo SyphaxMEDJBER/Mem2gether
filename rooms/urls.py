@@ -7,4 +7,5 @@ urlpatterns = [
     path("join/submit/", views.join_room, name="join_room"),
     path("<str:room_id>/leave/", views.leave_room, name="leave_room"),
     path("<str:room_id>/", views.room_view, name="room_view"),
+    path("<str:room_id>/react/", views.add_reaction, name="add_reaction"),
 ]

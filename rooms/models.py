@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 
 class Room(models.Model):
     MODE_CHOICES = (
@@ -15,6 +16,36 @@ class Room(models.Model):
 
     def __str__(self):
         return f"Room #{self.room_id} (par {self.creator.username})"
+
+
+class Reaction(models.Model):
+    """
+    Réactions dans une room (like, fun, wow, love).
+    """
+    REACTION_CHOICES = [
+        ("like", "Like"),
+        ("fun", "Fun"),
+        ("wow", "Wow"),
+        ("love", "Love"),
+    ]
+
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="reactions",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    type = models.CharField(max_length=10, choices=REACTION_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("room", "user", "type")  # 1 réaction de chaque type par user
+
+    def __str__(self):
+        return f"{self.user} - {self.type} - {self.room.room_id}"
 
 
 class ImageQueue(models.Model):
@@ -34,7 +65,11 @@ class ImageQueue(models.Model):
 
 
 class Participant(models.Model):
-    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="participants")
+    room = models.ForeignKey(
+        Room,
+        on_delete=models.CASCADE,
+        related_name="participants",
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     joined_at = models.DateTimeField(auto_now_add=True)
 
