@@ -1,3 +1,4 @@
+{# templates/rooms/room.html #}
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
@@ -49,70 +50,127 @@
 
     <section class="room-main">
 
+        <!-- MODE SWITCH (creator only) -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="d-flex gap-2">
-                <button class="mode-btn active" type="button" disabled>Mode Photos</button>
-                <button class="mode-btn" type="button" disabled>Mode YouTube</button>
+                {% if request.user == room.creator %}
+                    <form method="POST" class="d-flex gap-2">
+                        {% csrf_token %}
+                        <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" name="mode" value="photos" type="submit">
+                            Mode Photos
+                        </button>
+                        <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" name="mode" value="youtube" type="submit">
+                            Mode YouTube
+                        </button>
+                    </form>
+                {% else %}
+                    <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" type="button" disabled>Mode Photos</button>
+                    <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" type="button" disabled>Mode YouTube</button>
+                {% endif %}
             </div>
-            <span class="text-muted small">Synchro vidéo bientôt.</span>
+            <span class="text-muted small">Synchronisation en temps réel</span>
         </div>
 
-        <!-- PHOTO -->
-        <div class="sync-image-wrapper mb-3 text-center" id="photo-wrapper">
-            {% if images %}
-                {% for img in images %}
-                    {% if img.is_displayed %}
-                        <img id="sync-image" src="{{ img.image_url }}" style="max-height:100%; max-width:100%; border-radius:12px;">
-                        <p class="text-muted mt-2">Ajoutée par <strong>{{ img.uploaded_by.username }}</strong></p>
-                    {% endif %}
-                {% endfor %}
-            {% else %}
-                <p id="no-photo" class="text-muted">Aucune image pour l’instant.</p>
-            {% endif %}
-        </div>
+        <!-- ===================== PHOTOS MODE ===================== -->
+        <div id="photos-mode" {% if room.mode != "photos" %}style="display:none;"{% endif %}>
 
-        <!-- UPLOAD -->
-        <form method="POST" enctype="multipart/form-data" class="mb-4">
-            {% csrf_token %}
-            <input type="file" name="image" accept="image/*" required class="form-control mb-2">
-            <button type="submit" class="btn btn-primary w-100">Ajouter une image</button>
-        </form>
+            <div class="sync-image-wrapper mb-3 text-center" id="photo-wrapper">
+                {% if images %}
+                    {% for img in images %}
+                        {% if img.is_displayed %}
+                            <img id="sync-image" src="{{ img.image_url }}" style="max-height:100%; max-width:100%; border-radius:12px;">
+                            <p class="text-muted mt-2">Ajoutée par <strong>{{ img.uploaded_by.username }}</strong></p>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p id="no-photo" class="text-muted">Aucune image pour l’instant.</p>
+                {% endif %}
+            </div>
 
-        <div class="row g-3">
+            <form method="POST" enctype="multipart/form-data" class="mb-4">
+                {% csrf_token %}
+                <input type="file" name="image" accept="image/*" required class="form-control mb-2">
+                <button type="submit" class="btn btn-primary w-100">Ajouter une image</button>
+            </form>
 
-            <div class="col-md-4">
-                <h5 class="mb-2">File d’attente</h5>
-                {% for img in images %}
-                    <div class="queue-item">
-                        <img src="{{ img.image_url }}">
-                        <div>
-                            <div class="fw-semibold">#{{ img.position }}</div>
-                            <div class="text-muted small">par {{ img.uploaded_by.username }}</div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <h5 class="mb-2">File d’attente</h5>
+                    {% for img in images %}
+                        <div class="queue-item">
+                            <img src="{{ img.image_url }}">
+                            <div>
+                                <div class="fw-semibold">#{{ img.position }}</div>
+                                <div class="text-muted small">par {{ img.uploaded_by.username }}</div>
+                            </div>
                         </div>
-                    </div>
-                {% empty %}
-                    <div class="queue-item">
-                        <p class="mb-1 fw-semibold">Aucun média</p>
-                    </div>
-                {% endfor %}
-            </div>
-
-            <div class="col-md-8">
-                <h5 class="mb-2">Chat</h5>
-
-                <div id="chat-log" class="p-2 rounded-3 mb-2"
-                     style="height:180px; overflow-y:auto; background:#222;">
-                    {% for m in messages %}
-                        <p class="mb-1 text-light">
-                            <strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong>
-                            {{ m.content }}
-                        </p>
+                    {% empty %}
+                        <div class="queue-item">
+                            <p class="mb-1 fw-semibold">Aucun média</p>
+                        </div>
                     {% endfor %}
                 </div>
 
-                <div class="d-flex gap-2">
-                    <input type="text" id="chat-message-input" class="form-control" placeholder="Message..." />
-                    <button id="chat-message-submit" class="btn btn-primary">Envoyer</button>
+                <div class="col-md-8">
+                    <h5 class="mb-2">Chat</h5>
+
+                    <div id="chat-log" class="p-2 rounded-3 mb-2"
+                         style="height:180px; overflow-y:auto; background:#222;">
+                        {% for m in messages %}
+                            <p class="mb-1 text-light">
+                                <strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong>
+                                {{ m.content }}
+                            </p>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <input type="text" id="chat-message-input" class="form-control" placeholder="Message..." />
+                        <button id="chat-message-submit" class="btn btn-primary">Envoyer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== YOUTUBE MODE ===================== -->
+        <div id="youtube-mode" {% if room.mode != "youtube" %}style="display:none;"{% endif %}>
+
+            <div class="sync-image-wrapper mb-3" style="padding:0;">
+                <div id="yt-player" style="width:100%; height:100%;"></div>
+            </div>
+
+            {% if request.user == room.creator %}
+            <form method="POST" class="mb-4">
+                {% csrf_token %}
+                <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
+                <button type="submit" class="btn btn-primary w-100">Définir la vidéo</button>
+            </form>
+
+            <div class="d-flex gap-2 mb-3 flex-wrap">
+                <button id="yt-play" class="btn btn-primary" type="button">Play</button>
+                <button id="yt-pause" class="btn btn-outline-light" type="button">Pause</button>
+                <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <h5 class="mb-2">Chat</h5>
+
+                    <div id="chat-log-yt" class="p-2 rounded-3 mb-2"
+                         style="height:200px; overflow-y:auto; background:#222;">
+                        {% for m in messages %}
+                            <p class="mb-1 text-light">
+                                <strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong>
+                                {{ m.content }}
+                            </p>
+                        {% endfor %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <input type="text" id="chat-message-input-yt" class="form-control" placeholder="Message..." />
+                        <button id="chat-message-submit-yt" class="btn btn-primary">Envoyer</button>
+                    </div>
                 </div>
             </div>
 
@@ -126,12 +184,22 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     const currentUser = "{{ request.user.username }}";
+    const isCreator = "{{ request.user.username }}" === "{{ room.creator.username }}";
+    const roomId = "{{ room.room_id }}";
+    const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
 
-    // ===== WS CHAT (restauré) =====
-    const chatSocket = new WebSocket(
-        (location.protocol === "https:" ? "wss://" : "ws://")
-        + location.host + "/ws/rooms/{{ room.room_id }}/"
-    );
+    // ================= WS CHAT =================
+    const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
+
+    function appendChat(targetId, user, msg){
+        const log = document.getElementById(targetId);
+        if (!log) return;
+        const p = document.createElement("p");
+        p.className = "mb-1 text-light";
+        p.innerHTML = "<strong>" + user + " :</strong> " + msg;
+        log.appendChild(p);
+        log.scrollTop = log.scrollHeight;
+    }
 
     chatSocket.onmessage = e => {
         const data = JSON.parse(e.data);
@@ -140,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const list = document.getElementById("participants-list");
             let html = "<h5 class='mb-3'>Participants</h5>";
 
-            data.participants.forEach(u => {
+            (data.participants || []).forEach(u => {
                 if (u === currentUser) {
                     html += `
                         <div class="participant-item d-flex justify-content-between align-items-center">
@@ -160,32 +228,36 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (data.type === "chat") {
-            const log = document.getElementById("chat-log");
-            const p = document.createElement("p");
-            p.className = "mb-1 text-light";
-            p.innerHTML = "<strong>" + data.user + " :</strong> " + data.message;
-            log.appendChild(p);
-            log.scrollTop = log.scrollHeight;
+            appendChat("chat-log", data.user, data.message);
+            appendChat("chat-log-yt", data.user, data.message);
         }
     };
 
-    document.getElementById("chat-message-submit").onclick = () => {
-        const input = document.getElementById("chat-message-input");
-        const val = input.value.trim();
-        if (!val) return;
-        chatSocket.send(JSON.stringify({ message: val }));
-        input.value = "";
-    };
+    function bindChat(inputId, btnId){
+        const input = document.getElementById(inputId);
+        const btn = document.getElementById(btnId);
+        if (!input || !btn) return;
 
-    // ===== WS PHOTOS (temps réel) =====
-    const photoSocket = new WebSocket(
-        (location.protocol === "https:" ? "wss://" : "ws://")
-        + location.host + "/ws/photos/{{ room.room_id }}/"
-    );
+        const send = () => {
+            const val = input.value.trim();
+            if (!val) return;
+            chatSocket.send(JSON.stringify({ message: val }));
+            input.value = "";
+        };
 
+        btn.onclick = send;
+        input.onkeydown = e => { if (e.key === "Enter") send(); };
+    }
+
+    bindChat("chat-message-input", "chat-message-submit");
+    bindChat("chat-message-input-yt", "chat-message-submit-yt");
+
+    // ================= WS PHOTOS =================
+    const photoSocket = new WebSocket(protocol + location.host + "/ws/photos/" + roomId + "/");
     const photoWrapper = document.getElementById("photo-wrapper");
 
     function renderPhoto(url, user) {
+        if (!photoWrapper) return;
         photoWrapper.innerHTML = `
             <img id="sync-image" src="${url}?t=${Date.now()}" style="max-height:100%; max-width:100%; border-radius:12px;">
             <p class="text-muted mt-2">Ajoutée par <strong>${user}</strong></p>
@@ -199,16 +271,126 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // ===== FALLBACK HTTP (si WS photos ne marche pas) =====
     async function refreshCurrentPhoto() {
         try {
-            const r = await fetch("/rooms/{{ room.room_id }}/current-image/");
+            const r = await fetch("/rooms/" + roomId + "/current-image/");
             const data = await r.json();
             if (data.url) renderPhoto(data.url, data.user || "Anonyme");
         } catch {}
     }
     refreshCurrentPhoto();
     setInterval(refreshCurrentPhoto, 3000);
+
+    // ================= YOUTUBE =================
+    const ytModeEl = document.getElementById("youtube-mode");
+    const ytEnabled = ytModeEl && ytModeEl.style.display !== "none";
+
+    const ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
+
+    let player = null;
+    let ytReady = false;
+    let suppress = false;
+
+    function sendYT(payload){
+        if (!isCreator) return;
+        try { ytSocket.send(JSON.stringify(payload)); } catch {}
+    }
+
+    function ensureYouTubeAPI(){
+        if (window.YT && window.YT.Player) return;
+        const s = document.createElement("script");
+        s.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(s);
+    }
+
+    window.onYouTubeIframeAPIReady = function(){
+        player = new YT.Player("yt-player", {
+            videoId: "{{ room.youtube_video_id|default:'' }}",
+            playerVars: { playsinline: 1, controls: 1 },
+            events: {
+                onReady: () => { ytReady = true; },
+                onStateChange: (ev) => {
+                    if (!isCreator || suppress) return;
+                    if (!ytReady) return;
+
+                    const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+
+                    if (ev.data === YT.PlayerState.PLAYING) sendYT({type:"play", t});
+                    if (ev.data === YT.PlayerState.PAUSED)  sendYT({type:"pause", t});
+                }
+            }
+        });
+    };
+
+    function applyYT(ev){
+        if (!player || !ytReady) return;
+
+        suppress = true;
+
+        try {
+            if (ev.type === "set_video" && ev.videoId) {
+                player.loadVideoById(ev.videoId, ev.t || 0);
+            }
+
+            if (ev.type === "play") {
+                if (typeof ev.t === "number") player.seekTo(ev.t, true);
+                player.playVideo();
+            }
+
+            if (ev.type === "pause") {
+                if (typeof ev.t === "number") player.seekTo(ev.t, true);
+                player.pauseVideo();
+            }
+
+            if (ev.type === "seek") {
+                if (typeof ev.t === "number") player.seekTo(ev.t, true);
+            }
+
+            if (ev.type === "sync") {
+                if (typeof ev.t === "number") player.seekTo(ev.t, true);
+                if (ev.state === "playing") player.playVideo();
+                if (ev.state === "paused")  player.pauseVideo();
+            }
+        } finally {
+            setTimeout(() => { suppress = false; }, 200);
+        }
+    }
+
+    ytSocket.onmessage = e => {
+        const ev = JSON.parse(e.data);
+        applyYT(ev);
+    };
+
+    if (ytEnabled) {
+        ensureYouTubeAPI();
+    }
+
+    // Creator controls
+    const btnPlay = document.getElementById("yt-play");
+    const btnPause = document.getElementById("yt-pause");
+    const btnSync = document.getElementById("yt-sync");
+
+    if (btnPlay) btnPlay.onclick = () => {
+        if (!player || !ytReady) return;
+        const t = player.getCurrentTime();
+        sendYT({type:"play", t});
+        applyYT({type:"play", t});
+    };
+
+    if (btnPause) btnPause.onclick = () => {
+        if (!player || !ytReady) return;
+        const t = player.getCurrentTime();
+        sendYT({type:"pause", t});
+        applyYT({type:"pause", t});
+    };
+
+    if (btnSync) btnSync.onclick = () => {
+        if (!player || !ytReady) return;
+        const t = player.getCurrentTime();
+        const state = player.getPlayerState() === 1 ? "playing" : "paused";
+        sendYT({type:"sync", t, state});
+        applyYT({type:"sync", t, state});
+    };
 
 });
 </script>

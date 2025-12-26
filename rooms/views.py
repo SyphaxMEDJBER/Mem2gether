@@ -8,6 +8,33 @@ from asgiref.sync import async_to_sync
 from .models import Room, Participant, ImageQueue
 import secrets
 import os
+import re
+
+def _extract_youtube_id(url: str) -> str:
+    if not url:
+        return ""
+    url = url.strip()
+
+    # youtu.be/<id>
+    m = re.search(r"youtu\.be/([A-Za-z0-9_-]{6,})", url)
+    if m:
+        return m.group(1)
+
+    # watch?v=<id>
+    m = re.search(r"[?&]v=([A-Za-z0-9_-]{6,})", url)
+    if m:
+        return m.group(1)
+
+    # /embed/<id>
+    m = re.search(r"/embed/([A-Za-z0-9_-]{6,})", url)
+    if m:
+        return m.group(1)
+
+    # raw id
+    if re.fullmatch(r"[A-Za-z0-9_-]{6,}", url):
+        return url
+
+    return ""
 
 
 @login_required
@@ -35,6 +62,33 @@ def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
 
+    channel_layer = get_channel_layer()
+
+    # ===== SWITCH MODE + SET YOUTUBE (creator only) =====
+    if request.method == "POST" and request.user == room.creator:
+        mode = request.POST.get("mode", "").strip()
+        youtube_url = request.POST.get("youtube_url", "").strip()
+
+        changed = False
+
+        if mode in ("photos", "youtube") and room.mode != mode:
+            room.mode = mode
+            changed = True
+
+        if youtube_url:
+            vid = _extract_youtube_id(youtube_url)
+            if vid and room.youtube_video_id != vid:
+                room.youtube_video_id = vid
+                changed = True
+                # reset sync baseline
+                async_to_sync(channel_layer.group_send)(
+                    f"youtube_{room_id}",
+                    {"type": "youtube_event", "event": {"type": "set_video", "videoId": vid, "t": 0}}
+                )
+
+        if changed:
+            room.save()
+
     # ===== UPLOAD IMAGE =====
     if request.method == "POST" and request.FILES.get("image"):
         image = request.FILES["image"]
@@ -57,8 +111,6 @@ def room_view(request, room_id):
             is_displayed=True
         )
 
-        # ✅ temps réel photos (canal séparé)
-        channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             f"photos_{room_id}",
             {"type": "new_photo", "url": img.image_url, "user": request.user.username}
@@ -70,8 +122,7 @@ def room_view(request, room_id):
     messages = room.messages.select_related("user")
     images = room.image_queue.order_by("position")
 
-    # ✅ participants temps réel (comme avant)
-    channel_layer = get_channel_layer()
+    # participants realtime
     async_to_sync(channel_layer.group_send)(
         f"room_{room_id}",
         {"type": "participants_update", "participants": [p.user.username for p in participants]}

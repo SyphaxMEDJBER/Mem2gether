@@ -13,6 +13,9 @@ class Room(models.Model):
     password = models.CharField(max_length=20, blank=True)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default="photos")
 
+    # ✅ YouTube
+    youtube_video_id = models.CharField(max_length=32, blank=True, default="")
+
     def __str__(self):
         return f"Room #{self.room_id} (par {self.creator.username})"
 
@@ -42,7 +45,6 @@ class Participant(models.Model):
         return f"{self.user.username} dans {self.room.room_id}"
 
 
-# --------- NOUVEAU : MESSAGES SAUVES ---------
 class Message(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="messages")
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
@@ -51,7 +53,6 @@ class Message(models.Model):
 
     class Meta:
         ordering = ["timestamp"]
-
 
     def __str__(self):
         return f"{self.user} : {self.content[:20]}"
