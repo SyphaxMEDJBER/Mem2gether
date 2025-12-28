@@ -396,3 +396,50 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 {% endblock %}
+{% if room.mode == "youtube" %}
+
+<!-- REACTIONS -->
+<div class="mt-3">
+    <h5>Réactions</h5>
+    <div class="d-flex gap-2">
+        <button class="reaction-btn">🔥</button>
+        <button class="reaction-btn">😂</button>
+        <button class="reaction-btn">❤️</button>
+        <button class="reaction-btn">😮</button>
+    </div>
+    <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
+</div>
+
+<script>
+const reactionSocket = new WebSocket(
+    (location.protocol === "https:" ? "wss://" : "ws://")
+    + location.host + "/ws/reactions/{{ room.room_id }}/"
+);
+
+document.querySelectorAll(".reaction-btn").forEach(btn => {
+    btn.onclick = () => {
+        reactionSocket.send(JSON.stringify({ reaction: btn.innerText }));
+    };
+});
+
+reactionSocket.onmessage = e => {
+    const data = JSON.parse(e.data);
+    const feed = document.getElementById("reaction-feed");
+    feed.innerText = data.user + " " + data.reaction;
+};
+</script>
+
+
+<!-- REACTIONS -->
+<div class="mt-3">
+    <h5>Réactions</h5>
+    <div class="d-flex gap-2">
+        <button class="reaction-btn">🔥</button>
+        <button class="reaction-btn">😂</button>
+        <button class="reaction-btn">❤️</button>
+        <button class="reaction-btn">😮</button>
+    </div>
+    <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
+</div>
+
+{% endif %}
