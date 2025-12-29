@@ -65,6 +65,8 @@ def signout(request):
 
 @login_required
 def profil_view(request):
-    return render(request, "authentification/profil.html", {
-        "user": request.user
-    })
+    return render(request, "authentification/profil.html")
+        
+def signout(request):
+    logout(request)
+    return redirect("home")
