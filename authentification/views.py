@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import logout
+
 
 
 def signup(request):
@@ -70,3 +72,12 @@ def profil_view(request):
 def signout(request):
     logout(request)
     return redirect("home")
+    
+@login_required
+def supprimer_compte(request):
+    if request.method == "POST":
+        request.user.delete()
+        logout(request)
+        return redirect("home")
+
+
