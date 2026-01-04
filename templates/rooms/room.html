@@ -88,19 +88,21 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <h5 class="mb-2">File d’attente</h5>
-                    {% for img in images %}
-                        <div class="queue-item">
-                            <img src="{{ img.image_url }}">
-                            <div>
-                                <div class="fw-semibold">#{{ img.position }}</div>
-                                <div class="text-muted small">par {{ img.uploaded_by.username }}</div>
+                    <div id="queue-list">
+                        {% for img in images %}
+                            <div class="queue-item" data-image-id="{{ img.id }}">
+                                <img src="{{ img.image_url }}">
+                                <div>
+                                    <div class="fw-semibold">#{{ img.position }}</div>
+                                    <div class="text-muted small">par {{ img.uploaded_by.username }}</div>
+                                </div>
                             </div>
-                        </div>
-                    {% empty %}
-                        <div class="queue-item">
-                            <p class="mb-1 fw-semibold">Aucun média</p>
-                        </div>
-                    {% endfor %}
+                        {% empty %}
+                            <div class="queue-item">
+                                <p class="mb-1 fw-semibold">Aucun média</p>
+                            </div>
+                        {% endfor %}
+                    </div>
                 </div>
 
                 <div class="col-md-8">
@@ -131,7 +133,6 @@
                 <div id="yt-player" style="width:100%; height:100%;"></div>
             </div>
 
-            {% if request.user == room.creator %}
             <form method="POST" class="mb-4">
                 {% csrf_token %}
                 <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
@@ -143,7 +144,6 @@
                 <button id="yt-pause" class="btn btn-outline-light" type="button">Pause</button>
                 <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
             </div>
-            {% endif %}
 
             <div class="row g-3">
                 <div class="col-md-12">
@@ -176,7 +176,6 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     const currentUser = "{{ request.user.username }}";
-    const isCreator = "{{ request.user.username }}" === "{{ room.creator.username }}";
     const roomId = "{{ room.room_id }}";
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
     const photosModeEl = document.getElementById("photos-mode");
@@ -185,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modeInfoEl = document.getElementById("room-mode-info");
     const modeButtons = document.querySelectorAll("[data-mode]");
     let currentMode = "{{ room.mode }}";
+    let ytSocket = null;
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
@@ -208,6 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (mode === "youtube") {
             ensureYouTubeAPI();
+            requestYTSync();
         }
     }
 
@@ -236,7 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
             requestMode(btn.dataset.mode);
         });
     });
-    setMode(currentMode);
 
     // ================= WS CHAT =================
     const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
@@ -309,6 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // ================= WS PHOTOS =================
     const photoSocket = new WebSocket(protocol + location.host + "/ws/photos/" + roomId + "/");
     const photoWrapper = document.getElementById("photo-wrapper");
+    const queueList = document.getElementById("queue-list");
 
     function renderPhoto(url, user) {
         if (!photoWrapper) return;
@@ -322,8 +323,49 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = JSON.parse(e.data);
         if (data.type === "photo" && data.url) {
             renderPhoto(data.url, data.user || "Anonyme");
+            if (queueList && data.id) {
+                const existing = queueList.querySelector(`[data-image-id="${data.id}"]`);
+                if (!existing) {
+                    const item = document.createElement("div");
+                    item.className = "queue-item";
+                    item.dataset.imageId = data.id;
+                    item.innerHTML = `
+                        <img src="${data.url}">
+                        <div>
+                            <div class="fw-semibold">#${data.position || ""}</div>
+                            <div class="text-muted small">par ${data.user || "Anonyme"}</div>
+                        </div>
+                    `;
+                    queueList.appendChild(item);
+                }
+            }
         }
     };
+
+    function bindQueueClicks() {
+        const list = document.getElementById("queue-list");
+        if (!list) return;
+        list.addEventListener("click", async (e) => {
+            const item = e.target.closest(".queue-item[data-image-id]");
+            if (!item) return;
+            const imageId = item.dataset.imageId;
+            if (!imageId) return;
+            const csrftoken = getCookie("csrftoken");
+            try {
+                const res = await fetch(`/rooms/${roomId}/set-image/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "X-CSRFToken": csrftoken
+                    },
+                    body: `image_id=${encodeURIComponent(imageId)}`
+                });
+                if (!res.ok) throw new Error("bad response");
+            } catch (err) {
+                console.log("set image failed", err);
+            }
+        });
+    }
 
     async function refreshCurrentPhoto() {
         try {
@@ -332,19 +374,30 @@ document.addEventListener("DOMContentLoaded", () => {
             if (data.url) renderPhoto(data.url, data.user || "Anonyme");
         } catch {}
     }
+    bindQueueClicks();
     refreshCurrentPhoto();
     setInterval(refreshCurrentPhoto, 3000);
 
     // ================= YOUTUBE =================
-    const ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
+    ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
 
     let player = null;
     let ytReady = false;
     let suppress = false;
+    let pendingYTEvent = null;
+    let pendingSyncRequest = false;
 
     function sendYT(payload){
-        if (!isCreator) return;
         try { ytSocket.send(JSON.stringify(payload)); } catch {}
+    }
+
+    function requestYTSync(){
+        if (!ytSocket) return;
+        if (ytSocket.readyState === WebSocket.OPEN) {
+            sendYT({type: "sync_request"});
+        } else {
+            pendingSyncRequest = true;
+        }
     }
 
     function ensureYouTubeAPI(){
@@ -359,9 +412,15 @@ document.addEventListener("DOMContentLoaded", () => {
             videoId: "{{ room.youtube_video_id|default:'' }}",
             playerVars: { playsinline: 1, controls: 1 },
             events: {
-                onReady: () => { ytReady = true; },
+                onReady: () => {
+                    ytReady = true;
+                    if (pendingYTEvent) {
+                        applyYT(pendingYTEvent);
+                        pendingYTEvent = null;
+                    }
+                },
                 onStateChange: (ev) => {
-                    if (!isCreator || suppress) return;
+                    if (suppress) return;
                     if (!ytReady) return;
 
                     const t = player.getCurrentTime ? player.getCurrentTime() : 0;
@@ -374,11 +433,25 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     function applyYT(ev){
-        if (!player || !ytReady) return;
+        if (!player || !ytReady) {
+            pendingYTEvent = ev;
+            return;
+        }
 
         suppress = true;
 
         try {
+            if (ev.type === "init") {
+                if (ev.videoId) {
+                    player.loadVideoById(ev.videoId, ev.t || 0);
+                }
+                if (ev.state === "playing") {
+                    setTimeout(() => { player.playVideo(); }, 200);
+                } else if (ev.state === "paused") {
+                    setTimeout(() => { player.pauseVideo(); }, 200);
+                }
+            }
+
             if (ev.type === "set_video" && ev.videoId) {
                 player.loadVideoById(ev.videoId, ev.t || 0);
             }
@@ -407,12 +480,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    ytSocket.onopen = () => {
+        if (pendingSyncRequest) {
+            sendYT({type: "sync_request"});
+            pendingSyncRequest = false;
+        }
+    };
+
     ytSocket.onmessage = e => {
         const ev = JSON.parse(e.data);
         applyYT(ev);
     };
 
-    // Creator controls
+    // Controls
     const btnPlay = document.getElementById("yt-play");
     const btnPause = document.getElementById("yt-pause");
     const btnSync = document.getElementById("yt-sync");
@@ -438,6 +518,8 @@ document.addEventListener("DOMContentLoaded", () => {
         sendYT({type:"sync", t, state});
         applyYT({type:"sync", t, state});
     };
+
+    setMode(currentMode);
 
 });
 </script>
