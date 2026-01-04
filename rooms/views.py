@@ -64,16 +64,11 @@ def room_view(request, room_id):
 
     channel_layer = get_channel_layer()
 
-    # ===== SWITCH MODE + SET YOUTUBE (creator only) =====
+    # ===== SET YOUTUBE (creator only) =====
     if request.method == "POST" and request.user == room.creator:
-        mode = request.POST.get("mode", "").strip()
         youtube_url = request.POST.get("youtube_url", "").strip()
 
         changed = False
-
-        if mode in ("photos", "youtube") and room.mode != mode:
-            room.mode = mode
-            changed = True
 
         if youtube_url:
             vid = _extract_youtube_id(youtube_url)
@@ -134,6 +129,30 @@ def room_view(request, room_id):
         "messages": messages,
         "images": images
     })
+
+
+@login_required
+def set_mode(request, room_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "method_not_allowed"}, status=405)
+
+    room = Room.objects.get(room_id=room_id)
+    Participant.objects.get_or_create(room=room, user=request.user)
+
+    mode = request.POST.get("mode", "").strip()
+    if mode not in ("photos", "youtube"):
+        return JsonResponse({"error": "invalid_mode"}, status=400)
+
+    if room.mode != mode:
+        room.mode = mode
+        room.save()
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"room_{room_id}",
+            {"type": "mode_update", "mode": mode}
+        )
+
+    return JsonResponse({"mode": room.mode})
 
 
 @login_required
