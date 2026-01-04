@@ -53,6 +53,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def room_closed(self, event):
         await self.send(text_data=json.dumps({"type": "room_closed"}))
 
+    async def mode_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "mode",
+            "mode": event.get("mode"),
+        }))
+
 
 class PhotoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
