@@ -9,7 +9,7 @@
             <strong>Room {{ room.room_id }}</strong>
             <p class="mb-0 text-muted">
                 Créée par <span class="text-warning">{{ room.creator.username }}</span> — Mode :
-                <span class="text-warning">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span>
+                <span class="text-warning" id="room-mode-label">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span>
             </p>
         </div>
         <div><span class="room-code">Code : {{ room.room_id }}</span></div>
@@ -38,7 +38,7 @@
             <ul class="list-unstyled text-muted small">
                 <li>ID : {{ room.room_id }}</li>
                 <li>Créateur : {{ room.creator.username }}</li>
-                <li>Mode : {% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</li>
+                <li>Mode : <span id="room-mode-info">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span></li>
                 <li>Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
             </ul>
 
@@ -50,23 +50,15 @@
 
     <section class="room-main">
 
-        <!-- MODE SWITCH (creator only) -->
+        <!-- MODE SWITCH -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div class="d-flex gap-2">
-                {% if request.user == room.creator %}
-                    <form method="POST" class="d-flex gap-2">
-                        {% csrf_token %}
-                        <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" name="mode" value="photos" type="submit">
-                            Mode Photos
-                        </button>
-                        <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" name="mode" value="youtube" type="submit">
-                            Mode YouTube
-                        </button>
-                    </form>
-                {% else %}
-                    <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" type="button" disabled>Mode Photos</button>
-                    <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" type="button" disabled>Mode YouTube</button>
-                {% endif %}
+                <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" data-mode="photos" type="button">
+                    Mode Photos
+                </button>
+                <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" data-mode="youtube" type="button">
+                    Mode YouTube
+                </button>
             </div>
             <span class="text-muted small">Synchronisation en temps réel</span>
         </div>
@@ -187,6 +179,64 @@ document.addEventListener("DOMContentLoaded", () => {
     const isCreator = "{{ request.user.username }}" === "{{ room.creator.username }}";
     const roomId = "{{ room.room_id }}";
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
+    const photosModeEl = document.getElementById("photos-mode");
+    const ytModeEl = document.getElementById("youtube-mode");
+    const modeLabelEl = document.getElementById("room-mode-label");
+    const modeInfoEl = document.getElementById("room-mode-info");
+    const modeButtons = document.querySelectorAll("[data-mode]");
+    let currentMode = "{{ room.mode }}";
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return "";
+    }
+
+    function setMode(mode) {
+        if (!mode) return;
+        currentMode = mode;
+        const label = (mode === "youtube") ? "YouTube" : "Photos";
+        if (photosModeEl) photosModeEl.style.display = (mode === "photos") ? "" : "none";
+        if (ytModeEl) ytModeEl.style.display = (mode === "youtube") ? "" : "none";
+        if (modeLabelEl) modeLabelEl.textContent = label;
+        if (modeInfoEl) modeInfoEl.textContent = label;
+
+        modeButtons.forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.mode === mode);
+        });
+
+        if (mode === "youtube") {
+            ensureYouTubeAPI();
+        }
+    }
+
+    async function requestMode(mode) {
+        if (!mode || mode === currentMode) return;
+        const csrftoken = getCookie("csrftoken");
+        try {
+            const res = await fetch(`/rooms/${roomId}/set-mode/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-CSRFToken": csrftoken
+                },
+                body: `mode=${encodeURIComponent(mode)}`
+            });
+            if (!res.ok) throw new Error("bad response");
+            const data = await res.json();
+            if (data.mode) setMode(data.mode);
+        } catch (err) {
+            console.log("mode switch failed", err);
+        }
+    }
+
+    modeButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            requestMode(btn.dataset.mode);
+        });
+    });
+    setMode(currentMode);
 
     // ================= WS CHAT =================
     const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
@@ -221,6 +271,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             list.innerHTML = html;
+        }
+
+        if (data.type === "mode") {
+            setMode(data.mode);
         }
 
         if (data.type === "room_closed") {
@@ -282,9 +336,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(refreshCurrentPhoto, 3000);
 
     // ================= YOUTUBE =================
-    const ytModeEl = document.getElementById("youtube-mode");
-    const ytEnabled = ytModeEl && ytModeEl.style.display !== "none";
-
     const ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
 
     let player = null;
@@ -360,10 +411,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const ev = JSON.parse(e.data);
         applyYT(ev);
     };
-
-    if (ytEnabled) {
-        ensureYouTubeAPI();
-    }
 
     // Creator controls
     const btnPlay = document.getElementById("yt-play");
@@ -451,4 +498,3 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 {% endblock %}
-
