@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import Room, Participant, ImageQueue
@@ -64,8 +65,8 @@ def room_view(request, room_id):
 
     channel_layer = get_channel_layer()
 
-    # ===== SET YOUTUBE (creator only) =====
-    if request.method == "POST" and request.user == room.creator:
+    # ===== SET YOUTUBE (all participants) =====
+    if request.method == "POST":
         youtube_url = request.POST.get("youtube_url", "").strip()
 
         changed = False
@@ -74,6 +75,9 @@ def room_view(request, room_id):
             vid = _extract_youtube_id(youtube_url)
             if vid and room.youtube_video_id != vid:
                 room.youtube_video_id = vid
+                room.youtube_state = "paused"
+                room.youtube_time = 0.0
+                room.youtube_updated_at = timezone.now()
                 changed = True
                 # reset sync baseline
                 async_to_sync(channel_layer.group_send)(
@@ -108,7 +112,13 @@ def room_view(request, room_id):
 
         async_to_sync(channel_layer.group_send)(
             f"photos_{room_id}",
-            {"type": "new_photo", "url": img.image_url, "user": request.user.username}
+            {
+                "type": "new_photo",
+                "id": img.id,
+                "url": img.image_url,
+                "position": img.position,
+                "user": request.user.username
+            }
         )
 
         return redirect("room_view", room_id=room_id)
@@ -161,6 +171,33 @@ def current_image(request, room_id):
     if img:
         return JsonResponse({"url": img.image_url, "user": img.uploaded_by.username if img.uploaded_by else "Anonyme"})
     return JsonResponse({"url": None, "user": None})
+
+
+@login_required
+def set_image(request, room_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "method_not_allowed"}, status=405)
+
+    image_id = request.POST.get("image_id")
+    if not image_id:
+        return JsonResponse({"error": "missing_image_id"}, status=400)
+
+    try:
+        img = ImageQueue.objects.select_related("room", "uploaded_by").get(id=image_id, room__room_id=room_id)
+    except ImageQueue.DoesNotExist:
+        return JsonResponse({"error": "image_not_found"}, status=404)
+
+    ImageQueue.objects.filter(room=img.room).update(is_displayed=False)
+    img.is_displayed = True
+    img.save()
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"photos_{room_id}",
+        {"type": "new_photo", "url": img.image_url, "user": img.uploaded_by.username if img.uploaded_by else "Anonyme"}
+    )
+
+    return JsonResponse({"ok": True})
 
 
 @login_required
