@@ -15,6 +15,9 @@ class Room(models.Model):
 
     # ✅ YouTube
     youtube_video_id = models.CharField(max_length=32, blank=True, default="")
+    youtube_state = models.CharField(max_length=10, blank=True, default="paused")
+    youtube_time = models.FloatField(default=0.0)
+    youtube_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Room #{self.room_id} (par {self.creator.username})"
