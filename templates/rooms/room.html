@@ -145,6 +145,15 @@
                 <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
             </div>
 
+            <div class="d-flex gap-2 mb-3">
+                <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
+                <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
+            </div>
+            <div class="mb-3">
+                <h6 class="mb-2">Notes (POC)</h6>
+                <ul id="yt-notes-list" class="list-group"></ul>
+            </div>
+
             <div class="row g-3">
                 <div class="col-md-12">
                     <h5 class="mb-2">Chat</h5>
@@ -496,6 +505,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnPlay = document.getElementById("yt-play");
     const btnPause = document.getElementById("yt-pause");
     const btnSync = document.getElementById("yt-sync");
+    const btnAddNote = document.getElementById("yt-add-note");
+    const inputNote = document.getElementById("yt-note-content");
+    const notesList = document.getElementById("yt-notes-list");
+
+    function formatTimecode(totalSeconds) {
+        const sec = Math.max(0, Number(totalSeconds) || 0);
+        const minutes = Math.floor(sec / 60);
+        const seconds = sec % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
 
     if (btnPlay) btnPlay.onclick = () => {
         if (!player || !ytReady) return;
@@ -517,6 +536,36 @@ document.addEventListener("DOMContentLoaded", () => {
         const state = player.getPlayerState() === 1 ? "playing" : "paused";
         sendYT({type:"sync", t, state});
         applyYT({type:"sync", t, state});
+    };
+
+    if (btnAddNote) btnAddNote.onclick = async () => {
+        if (!player || !ytReady || !inputNote) return;
+        const content = inputNote.value.trim();
+        if (!content) return;
+
+        const timecode = Math.floor(player.getCurrentTime());
+        try {
+            const res = await fetch(`/rooms/${roomId}/add-note/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCookie("csrftoken")
+                },
+                body: JSON.stringify({ timecode, content })
+            });
+            if (!res.ok) throw new Error("save_failed");
+            const data = await res.json();
+            if (notesList) {
+                const item = document.createElement("li");
+                item.className = "list-group-item bg-dark text-light";
+                item.textContent = `${formatTimecode(data.timecode)} - ${content}`;
+                notesList.appendChild(item);
+            }
+            console.log("saved");
+            inputNote.value = "";
+        } catch (err) {
+            console.error("note_save_error", err);
+        }
     };
 
     setMode(currentMode);
@@ -579,4 +628,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 </script>
+<script src="{% static 'js/course_notes.js' %}"></script>
 {% endblock %}

@@ -4,9 +4,11 @@ from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import Room, Participant, ImageQueue
+from .models import CourseNote, ImageQueue, Participant, Room
+import json
 import secrets
 import os
 import re
@@ -219,3 +221,36 @@ def leave_room(request, room_id):
     )
 
     return redirect("home")
+
+
+@login_required
+@require_POST
+def add_course_note(request, room_id):
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "room_not_found"}, status=404)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    content = str(payload.get("content", "")).strip()
+    if not content:
+        return JsonResponse({"ok": False, "error": "missing_content"}, status=400)
+
+    try:
+        timecode = int(float(payload.get("timecode", 0)))
+        if timecode < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "invalid_timecode"}, status=400)
+
+    note = CourseNote.objects.create(
+        user=request.user,
+        room=room,
+        content=content,
+        timecode=timecode,
+    )
+    return JsonResponse({"ok": True, "note_id": note.id, "timecode": note.timecode})

@@ -59,3 +59,20 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.user} : {self.content[:20]}"
+
+
+class CourseNote(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="course_notes")
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="course_notes")
+    content = models.TextField()
+    timecode = models.PositiveIntegerField(help_text="Timecode in seconds")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["timecode", "created_at"]
+        indexes = [
+            models.Index(fields=["room", "timecode"]),
+        ]
+
+    def __str__(self):
+        return f"Note {self.id} by {self.user.username} @ {self.timecode}s"

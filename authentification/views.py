@@ -3,7 +3,6 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import logout
 
 
 
@@ -41,16 +40,22 @@ def signup(request):
 
 def signin(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        password = request.POST.get("password")
+        identifier = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password") or ""
+
+        username = identifier
+        if "@" in identifier:
+            found_user = User.objects.filter(email__iexact=identifier).first()
+            if found_user:
+                username = found_user.username
 
         user = authenticate(request, username=username, password=password)
-
         if user is None:
-            messages.error(request, "Identifiants invalides.")
+            messages.error(request, "Identifiants invalides (nom d'utilisateur/email ou mot de passe).")
             return redirect("signin")
 
         login(request, user)
+        messages.success(request, f"Bienvenue {user.username}.")
         return redirect("home")
 
     return render(request, "authentification/signin.html")
@@ -68,10 +73,6 @@ def signout(request):
 @login_required
 def profil_view(request):
     return render(request, "authentification/profil.html")
-        
-def signout(request):
-    logout(request)
-    return redirect("home")
     
 @login_required
 def supprimer_compte(request):

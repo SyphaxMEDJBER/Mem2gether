@@ -23,6 +23,7 @@ urlpatterns = [
 
     path("auth/", include("authentification.urls")),
     path("rooms/", include("rooms.urls")),
+    path("api/", include("rooms.api_urls")),
 
     # MEDIA (obligatoire si tu lances avec daphne)
     path("media/<path:path>", serve_media),
