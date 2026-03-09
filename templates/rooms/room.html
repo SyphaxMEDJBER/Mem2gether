@@ -150,7 +150,7 @@
                 <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
             </div>
             <div class="mb-3">
-                <h6 class="mb-2">Notes (POC)</h6>
+                <h6 class="mb-2">Notes du cours</h6>
                 <ul id="yt-notes-list" class="list-group"></ul>
             </div>
 
@@ -249,6 +249,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ================= WS CHAT =================
     const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
+    chatSocket.onopen = () => console.log("WS chat CONNECTED");
+    chatSocket.onerror = (e) => console.log("WS chat ERROR", e);
+    chatSocket.onclose = (e) => console.log("WS chat CLOSED", e.code, e.reason);
 
     function appendChat(targetId, user, msg){
         const log = document.getElementById(targetId);
@@ -304,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const send = () => {
             const val = input.value.trim();
             if (!val) return;
+            if (chatSocket.readyState !== WebSocket.OPEN) return;
             chatSocket.send(JSON.stringify({ message: val }));
             input.value = "";
         };
@@ -516,6 +520,57 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
     }
 
+    function seekToNoteTime(timecode) {
+        const t = Math.max(0, Number(timecode) || 0);
+        if (!player || !ytReady) return;
+        sendYT({ type: "seek", t });
+        applyYT({ type: "seek", t });
+    }
+
+    function buildNoteItem(note) {
+        const item = document.createElement("li");
+        item.className = "list-group-item bg-dark text-light d-flex justify-content-between align-items-center";
+        item.dataset.timecode = String(note.timecode);
+
+        const info = document.createElement("span");
+        const author = note.user || "Anonyme";
+        info.textContent = `${author} - ${note.content}`;
+
+        const goBtn = document.createElement("button");
+        goBtn.type = "button";
+        goBtn.className = "btn btn-sm btn-outline-light";
+        goBtn.textContent = formatTimecode(note.timecode);
+        goBtn.title = "Aller a ce moment";
+        goBtn.addEventListener("click", () => seekToNoteTime(note.timecode));
+
+        item.appendChild(info);
+        item.appendChild(goBtn);
+        return item;
+    }
+
+    function appendNote(note) {
+        if (!notesList) return;
+        notesList.appendChild(buildNoteItem(note));
+    }
+
+    async function loadCourseNotes() {
+        if (!notesList) return;
+        notesList.innerHTML = "";
+        try {
+            const notes = await window.CourseNotesAPI.fetchNotes(roomId);
+            if (!notes.length) {
+                const empty = document.createElement("li");
+                empty.className = "list-group-item bg-dark text-light";
+                empty.textContent = "Aucune note enregistree pour le moment.";
+                notesList.appendChild(empty);
+                return;
+            }
+            notes.forEach(appendNote);
+        } catch (err) {
+            console.error("notes_load_error", err);
+        }
+    }
+
     if (btnPlay) btnPlay.onclick = () => {
         if (!player || !ytReady) return;
         const t = player.getCurrentTime();
@@ -545,22 +600,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const timecode = Math.floor(player.getCurrentTime());
         try {
-            const res = await fetch(`/rooms/${roomId}/add-note/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": getCookie("csrftoken")
-                },
-                body: JSON.stringify({ timecode, content })
-            });
-            if (!res.ok) throw new Error("save_failed");
-            const data = await res.json();
-            if (notesList) {
-                const item = document.createElement("li");
-                item.className = "list-group-item bg-dark text-light";
-                item.textContent = `${formatTimecode(data.timecode)} - ${content}`;
-                notesList.appendChild(item);
+            const note = await window.CourseNotesAPI.addNote(timecode, content, roomId);
+            const emptyItem = notesList ? notesList.querySelector("li") : null;
+            if (emptyItem && emptyItem.textContent === "Aucune note enregistree pour le moment.") {
+                notesList.innerHTML = "";
             }
+            appendNote(note);
             console.log("saved");
             inputNote.value = "";
         } catch (err) {
@@ -568,6 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    loadCourseNotes();
     setMode(currentMode);
 
 });
