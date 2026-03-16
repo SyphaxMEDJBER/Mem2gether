@@ -33,3 +33,41 @@ class CourseNotesStorageTests(TestCase):
         self.assertEqual(note.room, self.room)
         self.assertEqual(note.content, "Point important du cours")
         self.assertEqual(note.timecode, 42)
+
+    def test_get_notes_returns_notes_ordered_by_timecode(self):
+        self.client.login(username="alice", password="secret123")
+
+        CourseNote.objects.create(
+            user=self.user,
+            room=self.room,
+            content="Deuxieme note",
+            timecode=84,
+        )
+        CourseNote.objects.create(
+            user=self.user,
+            room=self.room,
+            content="Premiere note",
+            timecode=12,
+        )
+
+        response = self.client.get(
+            reverse("course_notes_api"),
+            data={"room_id": self.room.room_id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["room_id"], self.room.room_id)
+        self.assertEqual(len(payload["notes"]), 2)
+        self.assertEqual(payload["notes"][0]["content"], "Premiere note")
+        self.assertEqual(payload["notes"][0]["timecode"], 12)
+        self.assertEqual(payload["notes"][1]["content"], "Deuxieme note")
+        self.assertEqual(payload["notes"][1]["timecode"], 84)
+
+    def test_notes_api_requires_authentication(self):
+        response = self.client.get(
+            reverse("course_notes_api"),
+            data={"room_id": self.room.room_id},
+        )
+
+        self.assertEqual(response.status_code, 302)

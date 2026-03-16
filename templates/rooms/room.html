@@ -151,6 +151,7 @@
             </div>
             <div class="mb-3">
                 <h6 class="mb-2">Notes du cours</h6>
+                <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
                 <ul id="yt-notes-list" class="list-group"></ul>
             </div>
 
@@ -512,6 +513,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnAddNote = document.getElementById("yt-add-note");
     const inputNote = document.getElementById("yt-note-content");
     const notesList = document.getElementById("yt-notes-list");
+    const notesStatus = document.getElementById("yt-notes-status");
 
     function formatTimecode(totalSeconds) {
         const sec = Math.max(0, Number(totalSeconds) || 0);
@@ -527,10 +529,27 @@ document.addEventListener("DOMContentLoaded", () => {
         applyYT({ type: "seek", t });
     }
 
+    function setNotesStatus(message, isError = false) {
+        if (!notesStatus) return;
+        notesStatus.textContent = message || "";
+        notesStatus.classList.toggle("text-danger", Boolean(isError && message));
+        notesStatus.classList.toggle("text-muted", !isError || !message);
+    }
+
+    function buildEmptyNoteItem() {
+        const empty = document.createElement("li");
+        empty.className = "list-group-item bg-dark text-light";
+        empty.dataset.empty = "true";
+        empty.textContent = "Aucune note enregistree pour le moment.";
+        return empty;
+    }
+
     function buildNoteItem(note) {
         const item = document.createElement("li");
         item.className = "list-group-item bg-dark text-light d-flex justify-content-between align-items-center";
         item.dataset.timecode = String(note.timecode);
+        item.style.cursor = "pointer";
+        item.tabIndex = 0;
 
         const info = document.createElement("span");
         const author = note.user || "Anonyme";
@@ -541,7 +560,18 @@ document.addEventListener("DOMContentLoaded", () => {
         goBtn.className = "btn btn-sm btn-outline-light";
         goBtn.textContent = formatTimecode(note.timecode);
         goBtn.title = "Aller a ce moment";
-        goBtn.addEventListener("click", () => seekToNoteTime(note.timecode));
+        goBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            seekToNoteTime(note.timecode);
+        });
+
+        item.addEventListener("click", () => seekToNoteTime(note.timecode));
+        item.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                seekToNoteTime(note.timecode);
+            }
+        });
 
         item.appendChild(info);
         item.appendChild(goBtn);
@@ -550,24 +580,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function appendNote(note) {
         if (!notesList) return;
-        notesList.appendChild(buildNoteItem(note));
+        const emptyItem = notesList.querySelector("[data-empty='true']");
+        if (emptyItem) emptyItem.remove();
+
+        const item = buildNoteItem(note);
+        const noteTimecode = Number(note.timecode) || 0;
+        const existingItems = Array.from(notesList.querySelectorAll("li[data-timecode]"));
+        const insertBefore = existingItems.find((existing) => {
+            return noteTimecode < (Number(existing.dataset.timecode) || 0);
+        });
+
+        if (insertBefore) {
+            notesList.insertBefore(item, insertBefore);
+            return;
+        }
+
+        notesList.appendChild(item);
     }
 
     async function loadCourseNotes() {
         if (!notesList) return;
         notesList.innerHTML = "";
+        setNotesStatus("Chargement des notes...");
         try {
             const notes = await window.CourseNotesAPI.fetchNotes(roomId);
             if (!notes.length) {
-                const empty = document.createElement("li");
-                empty.className = "list-group-item bg-dark text-light";
-                empty.textContent = "Aucune note enregistree pour le moment.";
-                notesList.appendChild(empty);
+                notesList.appendChild(buildEmptyNoteItem());
+                setNotesStatus("");
                 return;
             }
             notes.forEach(appendNote);
+            setNotesStatus("");
         } catch (err) {
             console.error("notes_load_error", err);
+            notesList.appendChild(buildEmptyNoteItem());
+            setNotesStatus("Impossible de charger les notes pour le moment.", true);
         }
     }
 
@@ -599,17 +646,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!content) return;
 
         const timecode = Math.floor(player.getCurrentTime());
+        setNotesStatus("Enregistrement de la note...");
         try {
             const note = await window.CourseNotesAPI.addNote(timecode, content, roomId);
-            const emptyItem = notesList ? notesList.querySelector("li") : null;
-            if (emptyItem && emptyItem.textContent === "Aucune note enregistree pour le moment.") {
-                notesList.innerHTML = "";
-            }
             appendNote(note);
-            console.log("saved");
             inputNote.value = "";
+            setNotesStatus(`Note enregistree a ${formatTimecode(note.timecode)}.`);
         } catch (err) {
             console.error("note_save_error", err);
+            setNotesStatus("Echec de l'enregistrement de la note.", true);
         }
     };
 
