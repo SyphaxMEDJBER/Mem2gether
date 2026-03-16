@@ -64,6 +64,7 @@ def join_room(request):
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
+    is_teacher = request.user == room.creator
 
     channel_layer = get_channel_layer()
 
@@ -139,7 +140,9 @@ def room_view(request, room_id):
         "room": room,
         "participants": participants,
         "messages": messages,
-        "images": images
+        "images": images,
+        "is_teacher": is_teacher,
+        "user_role": "professeur" if is_teacher else "etudiant",
     })
 
 

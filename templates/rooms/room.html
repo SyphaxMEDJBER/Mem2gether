@@ -3,6 +3,68 @@
 {% load static %}
 {% block content %}
 
+<style>
+    .role-badge {
+        font-size: 0.75rem;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+    .notes-panel {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 1rem;
+    }
+    .notes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-height: 320px;
+        overflow-y: auto;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+    }
+    .note-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 0.85rem 1rem;
+        cursor: pointer;
+    }
+    .note-card:hover,
+    .note-card:focus {
+        border-color: rgba(255, 193, 7, 0.6);
+        background: rgba(255, 193, 7, 0.08);
+        outline: none;
+    }
+    .note-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.35rem;
+    }
+    .note-time {
+        font-weight: 700;
+        color: #ffc107;
+    }
+    .whiteboard-panel {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 1rem;
+    }
+    .whiteboard-canvas {
+        width: 100%;
+        height: 320px;
+        display: block;
+        background: #fff;
+        border-radius: 12px;
+        cursor: crosshair;
+    }
+</style>
+
 <div class="room-header">
     <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
         <div class="text-start">
@@ -12,7 +74,10 @@
                 <span class="text-warning" id="room-mode-label">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span>
             </p>
         </div>
-        <div><span class="room-code">Code : {{ room.room_id }}</span></div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge {% if is_teacher %}bg-warning text-dark{% else %}bg-info text-dark{% endif %} role-badge">{{ user_role }}</span>
+            <span class="room-code">Code : {{ room.room_id }}</span>
+        </div>
     </div>
 </div>
 
@@ -23,10 +88,18 @@
             <h5 class="mb-3">Participants</h5>
             {% for p in participants %}
                 <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold">{{ p.user.username }}</span>
-                    {% if p.user == request.user %}
-                        <span class="badge bg-success">Moi</span>
-                    {% endif %}
+                    <div class="d-flex flex-column">
+                        <span class="fw-semibold">{{ p.user.username }}</span>
+                        <span class="small text-muted">{% if p.user == room.creator %}Professeur{% else %}Étudiant{% endif %}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        {% if p.user == room.creator %}
+                            <span class="badge bg-warning text-dark">Prof</span>
+                        {% endif %}
+                        {% if p.user == request.user %}
+                            <span class="badge bg-success">Moi</span>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
         </div>
@@ -38,6 +111,7 @@
             <ul class="list-unstyled text-muted small">
                 <li>ID : {{ room.room_id }}</li>
                 <li>Créateur : {{ room.creator.username }}</li>
+                <li>Votre rôle : {{ user_role|title }}</li>
                 <li>Mode : <span id="room-mode-info">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span></li>
                 <li>Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
             </ul>
@@ -129,8 +203,25 @@
         <!-- ===================== YOUTUBE MODE ===================== -->
         <div id="youtube-mode" {% if room.mode != "youtube" %}style="display:none;"{% endif %}>
 
-            <div class="sync-image-wrapper mb-3" style="padding:0;">
-                <div id="yt-player" style="width:100%; height:100%;"></div>
+            <div class="row g-3 align-items-stretch mb-3">
+                <div class="{% if is_teacher %}col-lg-8{% else %}col-12{% endif %}">
+                    <div class="sync-image-wrapper h-100" style="padding:0;">
+                        <div id="yt-player" style="width:100%; height:100%;"></div>
+                    </div>
+                </div>
+
+                {% if is_teacher %}
+                    <div class="col-lg-4">
+                        <div class="whiteboard-panel h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                                <h6 class="mb-0">Tableau blanc du professeur</h6>
+                                <button id="whiteboard-clear" type="button" class="btn btn-sm btn-outline-light">Effacer</button>
+                            </div>
+                            <canvas id="whiteboard-canvas" class="whiteboard-canvas" width="900" height="320"></canvas>
+                            <p class="small text-muted mb-0 mt-2">Prototype local: dessin simple non synchronisé en temps réel.</p>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
 
             <form method="POST" class="mb-4">
@@ -149,10 +240,13 @@
                 <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
                 <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
             </div>
-            <div class="mb-3">
-                <h6 class="mb-2">Notes du cours</h6>
+            <div class="notes-panel mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                    <h6 class="mb-0">Notes du cours</h6>
+                    <span class="small text-muted">Triées par timecode, cliquez pour aller au passage</span>
+                </div>
                 <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
-                <ul id="yt-notes-list" class="list-group"></ul>
+                <ul id="yt-notes-list" class="notes-list"></ul>
             </div>
 
             <div class="row g-3">
@@ -186,6 +280,7 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     const currentUser = "{{ request.user.username }}";
+    const creatorUser = "{{ room.creator.username }}";
     const roomId = "{{ room.room_id }}";
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
     const photosModeEl = document.getElementById("photos-mode");
@@ -272,14 +367,28 @@ document.addEventListener("DOMContentLoaded", () => {
             let html = "<h5 class='mb-3'>Participants</h5>";
 
             (data.participants || []).forEach(u => {
+                const isCreator = u === creatorUser;
                 if (u === currentUser) {
                     html += `
                         <div class="participant-item d-flex justify-content-between align-items-center">
-                            <span class="fw-semibold">${u}</span>
-                            <span class="badge bg-success">Moi</span>
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold">${u}</span>
+                                <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
+                                <span class="badge bg-success">Moi</span>
+                            </div>
                         </div>`;
                 } else {
-                    html += `<div class="participant-item"><span class="fw-semibold">${u}</span></div>`;
+                    html += `
+                        <div class="participant-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex flex-column">
+                                <span class="fw-semibold">${u}</span>
+                                <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
+                            </div>
+                            ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
+                        </div>`;
                 }
             });
 
@@ -514,6 +623,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputNote = document.getElementById("yt-note-content");
     const notesList = document.getElementById("yt-notes-list");
     const notesStatus = document.getElementById("yt-notes-status");
+    const whiteboardCanvas = document.getElementById("whiteboard-canvas");
+    const whiteboardClear = document.getElementById("whiteboard-clear");
+    const isTeacher = {{ is_teacher|yesno:"true,false" }};
 
     function formatTimecode(totalSeconds) {
         const sec = Math.max(0, Number(totalSeconds) || 0);
@@ -538,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function buildEmptyNoteItem() {
         const empty = document.createElement("li");
-        empty.className = "list-group-item bg-dark text-light";
+        empty.className = "note-card text-light";
         empty.dataset.empty = "true";
         empty.textContent = "Aucune note enregistree pour le moment.";
         return empty;
@@ -546,19 +658,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function buildNoteItem(note) {
         const item = document.createElement("li");
-        item.className = "list-group-item bg-dark text-light d-flex justify-content-between align-items-center";
+        item.className = "note-card text-light";
         item.dataset.timecode = String(note.timecode);
+        item.dataset.noteId = String(note.id || "");
         item.style.cursor = "pointer";
         item.tabIndex = 0;
 
-        const info = document.createElement("span");
         const author = note.user || "Anonyme";
-        info.textContent = `${author} - ${note.content}`;
+        const header = document.createElement("div");
+        header.className = "note-card-header";
+
+        const meta = document.createElement("div");
+        meta.className = "small text-muted";
+        meta.textContent = `Par ${author}`;
+
+        const time = document.createElement("span");
+        time.className = "note-time";
+        time.textContent = formatTimecode(note.timecode);
+
+        header.appendChild(meta);
+        header.appendChild(time);
+
+        const content = document.createElement("div");
+        content.textContent = note.content;
 
         const goBtn = document.createElement("button");
         goBtn.type = "button";
         goBtn.className = "btn btn-sm btn-outline-light";
-        goBtn.textContent = formatTimecode(note.timecode);
+        goBtn.textContent = "Aller a la video";
         goBtn.title = "Aller a ce moment";
         goBtn.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -573,7 +700,8 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        item.appendChild(info);
+        item.appendChild(header);
+        item.appendChild(content);
         item.appendChild(goBtn);
         return item;
     }
@@ -587,7 +715,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const noteTimecode = Number(note.timecode) || 0;
         const existingItems = Array.from(notesList.querySelectorAll("li[data-timecode]"));
         const insertBefore = existingItems.find((existing) => {
-            return noteTimecode < (Number(existing.dataset.timecode) || 0);
+            const existingTimecode = Number(existing.dataset.timecode) || 0;
+            if (noteTimecode !== existingTimecode) {
+                return noteTimecode < existingTimecode;
+            }
+            return (Number(note.id) || 0) < (Number(existing.dataset.noteId) || 0);
         });
 
         if (insertBefore) {
@@ -604,6 +736,11 @@ document.addEventListener("DOMContentLoaded", () => {
         setNotesStatus("Chargement des notes...");
         try {
             const notes = await window.CourseNotesAPI.fetchNotes(roomId);
+            notes.sort((a, b) => {
+                const timeDiff = (Number(a.timecode) || 0) - (Number(b.timecode) || 0);
+                if (timeDiff !== 0) return timeDiff;
+                return (Number(a.id) || 0) - (Number(b.id) || 0);
+            });
             if (!notes.length) {
                 notesList.appendChild(buildEmptyNoteItem());
                 setNotesStatus("");
@@ -660,6 +797,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadCourseNotes();
     setMode(currentMode);
+
+    function initWhiteboard() {
+        if (!isTeacher || !whiteboardCanvas) return;
+
+        const ctx = whiteboardCanvas.getContext("2d");
+        if (!ctx) return;
+
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#111";
+
+        let drawing = false;
+
+        function getPoint(event) {
+            const rect = whiteboardCanvas.getBoundingClientRect();
+            const scaleX = whiteboardCanvas.width / rect.width;
+            const scaleY = whiteboardCanvas.height / rect.height;
+            return {
+                x: (event.clientX - rect.left) * scaleX,
+                y: (event.clientY - rect.top) * scaleY,
+            };
+        }
+
+        function startDraw(event) {
+            drawing = true;
+            const point = getPoint(event);
+            ctx.beginPath();
+            ctx.moveTo(point.x, point.y);
+        }
+
+        function draw(event) {
+            if (!drawing) return;
+            const point = getPoint(event);
+            ctx.lineTo(point.x, point.y);
+            ctx.stroke();
+        }
+
+        function stopDraw() {
+            drawing = false;
+            ctx.closePath();
+        }
+
+        whiteboardCanvas.addEventListener("pointerdown", startDraw);
+        whiteboardCanvas.addEventListener("pointermove", draw);
+        whiteboardCanvas.addEventListener("pointerup", stopDraw);
+        whiteboardCanvas.addEventListener("pointerleave", stopDraw);
+
+        if (whiteboardClear) {
+            whiteboardClear.addEventListener("click", () => {
+                ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+            });
+        }
+    }
+
+    initWhiteboard();
 
 });
 </script>
