@@ -12,11 +12,47 @@ import json
 import secrets
 import os
 import re
+from urllib.parse import parse_qs, urlparse
 
 def _extract_youtube_id(url: str) -> str:
     if not url:
         return ""
     url = url.strip()
+
+    # raw id
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", url):
+        return url
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return ""
+
+    host = (parsed.netloc or "").lower()
+    path = (parsed.path or "").strip("/")
+
+    if host in {"youtu.be", "www.youtu.be"} and path:
+        candidate = path.split("/")[0]
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+            return candidate
+
+    if host in {
+        "youtube.com",
+        "www.youtube.com",
+        "m.youtube.com",
+        "music.youtube.com",
+        "youtube-nocookie.com",
+        "www.youtube-nocookie.com",
+    }:
+        video_id = parse_qs(parsed.query).get("v", [""])[0]
+        if re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            return video_id
+
+        parts = [part for part in path.split("/") if part]
+        if len(parts) >= 2 and parts[0] in {"embed", "shorts", "live", "v"}:
+            candidate = parts[1]
+            if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
+                return candidate
 
     # youtu.be/<id>
     m = re.search(r"youtu\.be/([A-Za-z0-9_-]{6,})", url)
@@ -33,8 +69,8 @@ def _extract_youtube_id(url: str) -> str:
     if m:
         return m.group(1)
 
-    # raw id
-    if re.fullmatch(r"[A-Za-z0-9_-]{6,}", url):
+    # final fallback for direct IDs only
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", url):
         return url
 
     return ""

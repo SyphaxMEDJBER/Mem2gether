@@ -1,6 +1,7 @@
 {# templates/rooms/room.html #}
 {% extends "base.html" %}
 {% load static %}
+{% block page_messages %}{% endblock %}
 {% block content %}
 
 <style>
@@ -276,12 +277,15 @@
 
 </div>
 
+<script src="{% static 'js/course_notes.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
     const currentUser = "{{ request.user.username }}";
     const creatorUser = "{{ room.creator.username }}";
     const roomId = "{{ room.room_id }}";
+    const pageOrigin = window.location.origin;
+    const pageHref = window.location.href;
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
     const photosModeEl = document.getElementById("photos-mode");
     const ytModeEl = document.getElementById("youtube-mode");
@@ -533,7 +537,13 @@ document.addEventListener("DOMContentLoaded", () => {
     window.onYouTubeIframeAPIReady = function(){
         player = new YT.Player("yt-player", {
             videoId: "{{ room.youtube_video_id|default:'' }}",
-            playerVars: { playsinline: 1, controls: 1 },
+            host: "https://www.youtube.com",
+            playerVars: {
+                playsinline: 1,
+                controls: 1,
+                origin: pageOrigin,
+                widget_referrer: pageHref,
+            },
             events: {
                 onReady: () => {
                     ytReady = true;
@@ -541,6 +551,9 @@ document.addEventListener("DOMContentLoaded", () => {
                         applyYT(pendingYTEvent);
                         pendingYTEvent = null;
                     }
+                },
+                onError: (ev) => {
+                    console.error("youtube_player_error", ev.data);
                 },
                 onStateChange: (ev) => {
                     if (suppress) return;
@@ -730,12 +743,20 @@ document.addEventListener("DOMContentLoaded", () => {
         notesList.appendChild(item);
     }
 
+    function getCourseNotesAPI() {
+        return window.CourseNotesAPI || null;
+    }
+
     async function loadCourseNotes() {
         if (!notesList) return;
         notesList.innerHTML = "";
         setNotesStatus("Chargement des notes...");
         try {
-            const notes = await window.CourseNotesAPI.fetchNotes(roomId);
+            const api = getCourseNotesAPI();
+            if (!api) {
+                throw new Error("course_notes_api_unavailable");
+            }
+            const notes = await api.fetchNotes(roomId);
             notes.sort((a, b) => {
                 const timeDiff = (Number(a.timecode) || 0) - (Number(b.timecode) || 0);
                 if (timeDiff !== 0) return timeDiff;
@@ -778,14 +799,22 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (btnAddNote) btnAddNote.onclick = async () => {
-        if (!player || !ytReady || !inputNote) return;
+        if (!inputNote) return;
         const content = inputNote.value.trim();
         if (!content) return;
 
-        const timecode = Math.floor(player.getCurrentTime());
+        const api = getCourseNotesAPI();
+        if (!api) {
+            setNotesStatus("Le module de notes n'est pas charge.", true);
+            return;
+        }
+
+        const timecode = (player && ytReady && player.getCurrentTime)
+            ? Math.floor(player.getCurrentTime())
+            : 0;
         setNotesStatus("Enregistrement de la note...");
         try {
-            const note = await window.CourseNotesAPI.addNote(timecode, content, roomId);
+            const note = await api.addNote(timecode, content, roomId);
             appendNote(note);
             inputNote.value = "";
             setNotesStatus(`Note enregistree a ${formatTimecode(note.timecode)}.`);
@@ -911,52 +940,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 </script>
-<script src="{% static 'js/course_notes.js' %}"></script>
 {% endblock %}
-{% if room.mode == "youtube" %}
-
-<!-- REACTIONS -->
-<div class="mt-3">
-    <h5>Réactions</h5>
-    <div class="d-flex gap-2">
-        <button class="reaction-btn">🔥</button>
-        <button class="reaction-btn">😂</button>
-        <button class="reaction-btn">❤️</button>
-        <button class="reaction-btn">😮</button>
-    </div>
-    <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
-</div>
-
-<script>
-const reactionSocket = new WebSocket(
-    (location.protocol === "https:" ? "wss://" : "ws://")
-    + location.host + "/ws/reactions/{{ room.room_id }}/"
-);
-
-document.querySelectorAll(".reaction-btn").forEach(btn => {
-    btn.onclick = () => {
-        reactionSocket.send(JSON.stringify({ reaction: btn.innerText }));
-    };
-});
-
-reactionSocket.onmessage = e => {
-    const data = JSON.parse(e.data);
-    const feed = document.getElementById("reaction-feed");
-    feed.innerText = data.user + " " + data.reaction;
-};
-</script>
-
-
-<!-- REACTIONS -->
-<div class="mt-3">
-    <h5>Réactions</h5>
-    <div class="d-flex gap-2">
-        <button class="reaction-btn">🔥</button>
-        <button class="reaction-btn">😂</button>
-        <button class="reaction-btn">❤️</button>
-        <button class="reaction-btn">😮</button>
-    </div>
-    <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
-</div>
-
-{% endif %}
