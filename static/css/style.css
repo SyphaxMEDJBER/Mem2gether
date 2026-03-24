@@ -123,6 +123,7 @@ body {
         margin-left: auto;
         margin-right: auto;
     }
+
 }
 
 /* --------- CARDS --------- */
@@ -133,6 +134,7 @@ body {
     box-shadow: 0 8px 28px rgba(0,0,0,0.35);
     transition: 0.25s;
     height: 100%;
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
 .feature-card:hover {
