@@ -38,9 +38,11 @@
                 {% if user.is_authenticated %}
 
                     <!-- CRÉER UNE ROOM -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
-                    </li>
+                    {% if user.userprofile.role == "teacher" %}
+                        <li class="nav-item">
+                            <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
+                        </li>
+                    {% endif %}
 
                     <!-- PROFIL -->
                     <li class="nav-item">

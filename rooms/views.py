@@ -8,11 +8,21 @@ from django.views.decorators.http import require_POST
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import CourseNote, ImageQueue, Participant, Room
+from authentification.models import UserProfile
 import json
 import secrets
 import os
 import re
 from urllib.parse import parse_qs, urlparse
+
+
+def _is_teacher(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    return profile.is_teacher
+
+
+def _forbid_student_json():
+    return JsonResponse({"error": "teacher_only"}, status=403)
 
 def _extract_youtube_id(url: str) -> str:
     if not url:
@@ -78,6 +88,14 @@ def _extract_youtube_id(url: str) -> str:
 
 @login_required
 def create_room(request):
+    if not _is_teacher(request.user):
+        return render(
+            request,
+            "rooms/create_room.html",
+            {"error": "Seul un professeur peut creer une room."},
+            status=403,
+        )
+
     room_id = secrets.token_hex(4)
     Room.objects.create(room_id=room_id, creator=request.user)
     return redirect("room_view", room_id=room_id)
@@ -100,12 +118,27 @@ def join_room(request):
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
-    is_teacher = request.user == room.creator
+    is_teacher = request.user == room.creator and _is_teacher(request.user)
 
     channel_layer = get_channel_layer()
 
     # ===== SET YOUTUBE (all participants) =====
-    if request.method == "POST":
+    if request.method == "POST" and request.POST.get("youtube_url") is not None:
+        if not is_teacher:
+            messages = {"room": room, "error": "Seul un professeur peut modifier la video."}
+            participants = room.participants.select_related("user")
+            room_messages = room.messages.select_related("user")
+            images = room.image_queue.order_by("position")
+            return render(request, "rooms/room.html", {
+                "room": room,
+                "participants": participants,
+                "messages": room_messages,
+                "images": images,
+                "is_teacher": is_teacher,
+                "user_role": "professeur" if is_teacher else "eleve",
+                **messages,
+            }, status=403)
+
         youtube_url = request.POST.get("youtube_url", "").strip()
 
         changed = False
@@ -129,6 +162,20 @@ def room_view(request, room_id):
 
     # ===== UPLOAD IMAGE =====
     if request.method == "POST" and request.FILES.get("image"):
+        if not is_teacher:
+            participants = room.participants.select_related("user")
+            room_messages = room.messages.select_related("user")
+            images = room.image_queue.order_by("position")
+            return render(request, "rooms/room.html", {
+                "room": room,
+                "participants": participants,
+                "messages": room_messages,
+                "images": images,
+                "is_teacher": is_teacher,
+                "user_role": "professeur" if is_teacher else "eleve",
+                "error": "Seul un professeur peut ajouter une image ou utiliser le tableau blanc.",
+            }, status=403)
+
         image = request.FILES["image"]
 
         ext = os.path.splitext(image.name)[1]
@@ -178,7 +225,7 @@ def room_view(request, room_id):
         "messages": messages,
         "images": images,
         "is_teacher": is_teacher,
-        "user_role": "professeur" if is_teacher else "etudiant",
+        "user_role": "professeur" if is_teacher else "eleve",
     })
 
 
@@ -189,6 +236,8 @@ def set_mode(request, room_id):
 
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
+    if request.user != room.creator or not _is_teacher(request.user):
+        return _forbid_student_json()
 
     mode = request.POST.get("mode", "").strip()
     if mode not in ("photos", "youtube"):
@@ -227,6 +276,9 @@ def set_image(request, room_id):
         img = ImageQueue.objects.select_related("room", "uploaded_by").get(id=image_id, room__room_id=room_id)
     except ImageQueue.DoesNotExist:
         return JsonResponse({"error": "image_not_found"}, status=404)
+
+    if request.user != img.room.creator or not _is_teacher(request.user):
+        return _forbid_student_json()
 
     ImageQueue.objects.filter(room=img.room).update(is_displayed=False)
     img.is_displayed = True

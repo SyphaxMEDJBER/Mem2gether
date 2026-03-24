@@ -7,6 +7,10 @@
 
     <h2 class="text-center mb-4">Créer une room</h2>
 
+    {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
     <form method="POST" action="{% url 'create_room' %}">
         {% csrf_token %}
 

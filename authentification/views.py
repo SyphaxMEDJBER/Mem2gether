@@ -3,15 +3,21 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from .models import UserProfile
 
 
 
 def signup(request):
     if request.method == "POST":
-        username = request.POST.get("username")
-        email = request.POST.get("email")
-        password1 = request.POST.get("password1")
-        password2 = request.POST.get("password2")
+        username = (request.POST.get("username") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+        password1 = request.POST.get("password1") or ""
+        password2 = request.POST.get("password2") or ""
+        role = request.POST.get("role")
+
+        if role not in {UserProfile.ROLE_TEACHER, UserProfile.ROLE_STUDENT}:
+            messages.error(request, "Choisissez un role entre professeur et eleve.")
+            return redirect("signup")
 
         if password1 != password2:
             messages.error(request, "Les mots de passe ne correspondent pas.")
@@ -30,7 +36,9 @@ def signup(request):
             email=email,
             password=password1
         )
-        user.save()
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.role = role
+        profile.save(update_fields=["role"])
 
         login(request, user)
         return redirect("home")
@@ -72,7 +80,8 @@ def signout(request):
 
 @login_required
 def profil_view(request):
-    return render(request, "authentification/profil.html")
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    return render(request, "authentification/profil.html", {"profile": profile})
     
 @login_required
 def supprimer_compte(request):
@@ -80,5 +89,4 @@ def supprimer_compte(request):
         request.user.delete()
         logout(request)
         return redirect("home")
-
 
