@@ -7,6 +7,7 @@
     <div class="form-box">
 
         <h2 class="signin-title fw-bold mb-4">Créer un compte</h2>
+        <p class="signin-subtitle">Choisissez votre rôle pour afficher les bons accès dès l’inscription.</p>
 
         <form method="POST">
             {% csrf_token %}
@@ -22,6 +23,22 @@
 
             <input type="password" name="password2" class="form-control signin-input mb-4"
                    placeholder="Confirmer le mot de passe" required>
+
+            <div class="mb-4">
+                <p class="mb-3 fw-semibold role-choice-title">Je suis :</p>
+                <div class="role-choice-grid">
+                    <label class="role-choice-card" for="role-teacher">
+                        <input class="form-check-input" type="radio" name="role" id="role-teacher" value="teacher" required>
+                        <span class="role-choice-label">Professeur</span>
+                        <small>Création de room et contrôle du cours</small>
+                    </label>
+                    <label class="role-choice-card" for="role-student">
+                        <input class="form-check-input" type="radio" name="role" id="role-student" value="student" required>
+                        <span class="role-choice-label">Eleve</span>
+                        <small>Participation aux rooms et prise de notes</small>
+                    </label>
+                </div>
+            </div>
 
             <button type="submit" class="signin-btn w-100">Créer un compte</button>
         </form>

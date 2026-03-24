@@ -21,7 +21,10 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm py-3">
     <div class="container">
 
-        <a class="navbar-brand fw-bold fs-3" href="/">Mem2gether</a>
+        <a class="navbar-brand fw-bold fs-3 d-flex align-items-center gap-2" href="/">
+            <span class="brand-mark">M</span>
+            <span>Mem2gether</span>
+        </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
             <span class="navbar-toggler-icon"></span>
@@ -38,9 +41,11 @@
                 {% if user.is_authenticated %}
 
                     <!-- CRÉER UNE ROOM -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
-                    </li>
+                    {% if user.userprofile.role == "teacher" %}
+                        <li class="nav-item">
+                            <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
+                        </li>
+                    {% endif %}
 
                     <!-- PROFIL -->
                     <li class="nav-item">
@@ -83,7 +88,7 @@
         {% block page_messages %}
             {% if messages %}
                 {% for message in messages %}
-                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2" role="alert">
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2 app-alert" role="alert">
                         {{ message }}
                     </div>
                 {% endfor %}

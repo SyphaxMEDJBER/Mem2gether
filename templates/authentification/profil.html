@@ -6,18 +6,23 @@
 <div class="container py-5">
 
     <div class="profile-card mx-auto p-4 shadow-lg">
-        
         <h2 class="text-center mb-4 title-profile">Mon compte</h2>
+
+        <div class="profile-card-header mb-4">
+            <div class="profile-avatar">{{ user.username|first|upper }}</div>
+            <div>
+                <h3 class="profile-name mb-1">{{ user.username }}</h3>
+                <p class="profile-role mb-0">{{ profile.get_role_display }}</p>
+            </div>
+        </div>
 
         <div class="info-box p-3 mb-4">
             <p><strong>Nom d'utilisateur :</strong> {{ user.username }}</p>
             <p><strong>Email :</strong> {{ user.email }}</p>
+            <p><strong>Rôle :</strong> {{ profile.get_role_display }}</p>
         </div>
 
         <div class="d-flex flex-column gap-3">
-
-           
-
             <form method="POST" action="{% url 'supprimer_compte' %}">
                 {% csrf_token %}
                 <button type="submit"
