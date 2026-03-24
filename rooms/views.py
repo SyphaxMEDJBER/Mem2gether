@@ -24,6 +24,35 @@ def _is_teacher(user):
 def _forbid_student_json():
     return JsonResponse({"error": "teacher_only"}, status=403)
 
+
+def _serialize_participants(room):
+    participants = room.participants.select_related("user").order_by("joined_at")
+    return [
+        {
+            "username": participant.user.username,
+            "is_creator": participant.user_id == room.creator_id,
+        }
+        for participant in participants
+    ]
+
+
+def _broadcast_participants(room):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"room_{room.room_id}",
+        {
+            "type": "participants_update",
+            "participants": _serialize_participants(room),
+        },
+    )
+
+
+@login_required
+def participants_json(request, room_id):
+    room = Room.objects.get(room_id=room_id)
+    Participant.objects.get_or_create(room=room, user=request.user)
+    return JsonResponse({"participants": _serialize_participants(room)})
+
 def _extract_youtube_id(url: str) -> str:
     if not url:
         return ""
@@ -213,11 +242,7 @@ def room_view(request, room_id):
     messages = room.messages.select_related("user")
     images = room.image_queue.order_by("position")
 
-    # participants realtime
-    async_to_sync(channel_layer.group_send)(
-        f"room_{room_id}",
-        {"type": "participants_update", "participants": [p.user.username for p in participants]}
-    )
+    _broadcast_participants(room)
 
     return render(request, "rooms/room.html", {
         "room": room,
@@ -296,20 +321,9 @@ def set_image(request, room_id):
 @login_required
 def leave_room(request, room_id):
     room = Room.objects.get(room_id=room_id)
-    channel_layer = get_channel_layer()
-
-    if request.user == room.creator:
-        async_to_sync(channel_layer.group_send)(f"room_{room_id}", {"type": "room_closed"})
-        room.delete()
-        return redirect("home")
 
     Participant.objects.filter(room=room, user=request.user).delete()
-
-    participants = room.participants.select_related("user")
-    async_to_sync(channel_layer.group_send)(
-        f"room_{room_id}",
-        {"type": "participants_update", "participants": [p.user.username for p in participants]}
-    )
+    _broadcast_participants(room)
 
     return redirect("home")
 

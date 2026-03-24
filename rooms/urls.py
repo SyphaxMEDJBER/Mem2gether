@@ -11,4 +11,5 @@ urlpatterns = [
     path("<str:room_id>/leave/", views.leave_room, name="leave_room"),
 
     path("<str:room_id>/current-image/", views.current_image, name="current_image"),
+    path("<str:room_id>/participants/", views.participants_json, name="participants_json"),
 ]

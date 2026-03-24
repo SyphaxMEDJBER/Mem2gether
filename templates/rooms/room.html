@@ -367,36 +367,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = JSON.parse(e.data);
 
         if (data.type === "participants") {
-            const list = document.getElementById("participants-list");
-            let html = "<h5 class='mb-3'>Participants</h5>";
-
-            (data.participants || []).forEach(u => {
-                const isCreator = u === creatorUser;
-                if (u === currentUser) {
-                    html += `
-                        <div class="participant-item d-flex justify-content-between align-items-center">
-                            <div class="d-flex flex-column">
-                                <span class="fw-semibold">${u}</span>
-                                <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
-                            </div>
-                            <div class="d-flex gap-1">
-                                ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
-                                <span class="badge bg-success">Moi</span>
-                            </div>
-                        </div>`;
-                } else {
-                    html += `
-                        <div class="participant-item d-flex justify-content-between align-items-center">
-                            <div class="d-flex flex-column">
-                                <span class="fw-semibold">${u}</span>
-                                <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
-                            </div>
-                            ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
-                        </div>`;
-                }
-            });
-
-            list.innerHTML = html;
+            renderParticipants(data.participants || []);
         }
 
         if (data.type === "mode") {
@@ -412,6 +383,43 @@ document.addEventListener("DOMContentLoaded", () => {
             appendChat("chat-log-yt", data.user, data.message);
         }
     };
+
+    function renderParticipants(participants) {
+        const list = document.getElementById("participants-list");
+        if (!list) return;
+
+        let html = "<h5 class='mb-3'>Participants</h5>";
+        participants.forEach(participant => {
+            const username = participant.username;
+            const isCreator = !!participant.is_creator;
+            const isCurrentUser = username === currentUser;
+            html += `
+                <div class="participant-item d-flex justify-content-between align-items-center">
+                    <div class="d-flex flex-column">
+                        <span class="fw-semibold">${username}</span>
+                        <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
+                    </div>
+                    <div class="d-flex gap-1">
+                        ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
+                        ${isCurrentUser ? '<span class="badge bg-success">Moi</span>' : ""}
+                    </div>
+                </div>`;
+        });
+        list.innerHTML = html;
+    }
+
+    async function refreshParticipants() {
+        try {
+            const response = await fetch(`/rooms/${roomId}/participants/`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            renderParticipants(data.participants || []);
+        } catch (err) {
+            console.log("participants refresh failed", err);
+        }
+    }
 
     function bindChat(inputId, btnId){
         const input = document.getElementById(inputId);
@@ -504,6 +512,8 @@ document.addEventListener("DOMContentLoaded", () => {
     bindQueueClicks();
     refreshCurrentPhoto();
     setInterval(refreshCurrentPhoto, 3000);
+    refreshParticipants();
+    setInterval(refreshParticipants, 2000);
 
     // ================= YOUTUBE =================
     ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
