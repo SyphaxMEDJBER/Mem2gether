@@ -95,10 +95,10 @@
                 <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
                     <div class="d-flex flex-column">
                         <span class="fw-semibold">{{ p.user.username }}</span>
-                        <span class="small text-muted">{% if p.user == room.creator %}Professeur{% else %}Étudiant{% endif %}</span>
+                        <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Étudiant{% endif %}</span>
                     </div>
                     <div class="d-flex gap-1">
-                        {% if p.user == room.creator %}
+                        {% if p.user.userprofile.role == 'teacher' %}
                             <span class="badge bg-warning text-dark">Prof</span>
                         {% endif %}
                         {% if p.user == request.user %}
@@ -396,14 +396,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const username = participant.username;
             const isCreator = !!participant.is_creator;
             const isCurrentUser = username === currentUser;
+            const role = participant.role === "teacher" ? "Professeur" : "Étudiant";
             html += `
                 <div class="participant-item d-flex justify-content-between align-items-center">
                     <div class="d-flex flex-column">
                         <span class="fw-semibold">${username}</span>
-                        <span class="small text-muted">${isCreator ? "Professeur" : "Étudiant"}</span>
+                        <span class="small text-muted">${role}</span>
                     </div>
                     <div class="d-flex gap-1">
-                        ${isCreator ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
+                        ${participant.role === "teacher" ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
                         ${isCurrentUser ? '<span class="badge bg-success">Moi</span>' : ""}
                     </div>
                 </div>`;

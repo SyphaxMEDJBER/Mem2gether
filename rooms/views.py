@@ -26,11 +26,12 @@ def _forbid_student_json():
 
 
 def _serialize_participants(room):
-    participants = room.participants.select_related("user").order_by("joined_at")
+    participants = room.participants.select_related("user", "user__userprofile").order_by("joined_at")
     return [
         {
             "username": participant.user.username,
             "is_creator": participant.user_id == room.creator_id,
+            "role": participant.user.userprofile.role,
         }
         for participant in participants
     ]
@@ -238,11 +239,14 @@ def room_view(request, room_id):
 
         return redirect("room_view", room_id=room_id)
 
-    participants = room.participants.select_related("user")
+    participants = room.participants.select_related("user", "user__userprofile")
     messages = room.messages.select_related("user")
     images = room.image_queue.order_by("position")
 
     _broadcast_participants(room)
+
+    user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    user_role = "professeur" if user_profile.is_teacher else "eleve"
 
     return render(request, "rooms/room.html", {
         "room": room,
