@@ -4,10 +4,7 @@
 {% block content %}
 <div class="hero">
     <div class="hero-overlay"></div>
-    <div class="hero-card d-flex flex-column align-items-center gap-3 mt-4">
-        <h1 class="hero-title-main">Mem2gether</h1>
-        <p class="hero-subtitle-main text-center">Travaillez dans la même room, échangez en direct et gardez la séance synchronisée.</p>
-        <div class="d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-2">
+    <div class="hero-actions-bar d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-4">
         <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
         {% if user.is_authenticated and user.userprofile.role == "teacher" %}
         <a href="/rooms/create/" class="btn btn-outline-light btn-lg px-4">Créer une room</a>
@@ -15,16 +12,13 @@
         <a href="/signup" class="btn btn-outline-light btn-lg px-4">Créer un compte</a>
         {% endif %}
         <a href="/rooms/join/" class="btn btn-outline-light btn-lg px-4">Rejoindre une room</a>
-        </div>
     </div>
-
 </div>
 
 <div class="container py-5 home-features">
     <h2 class="text-center fw-bold mb-5">Fonctionnalités</h2>
 
     <div class="row g-4">
-
         <div class="col-md-4">
             <div class="feature-card">
                 <h4 class="fw-bold">Lecture synchronisée</h4>
@@ -45,8 +39,6 @@
                 <p class="text-muted">Ajoutez et organisez vos vidéos.</p>
             </div>
         </div>
-
     </div>
 </div>
-
 {% endblock %}
