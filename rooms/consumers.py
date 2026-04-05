@@ -3,15 +3,32 @@ import json
 from asgiref.sync import sync_to_async
 from django.contrib.auth.models import User
 from django.utils import timezone
-from .models import Room, Message
+from .models import Room, Message, Participant
+from .views import _serialize_participants
 
 class ChatConsumer(AsyncWebsocketConsumer):
+    @sync_to_async
+    def _sync_join_and_payload(self, user):
+        room = Room.objects.get(room_id=self.room_id)
+        if user.is_authenticated:
+            Participant.objects.get_or_create(room=room, user=user)
+        return _serialize_participants(room)
+
     async def connect(self):
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         self.group = f"chat_{self.room_id}"
         await self.channel_layer.group_add(self.group, self.channel_name)
         await self.channel_layer.group_add(f"room_{self.room_id}", self.channel_name)
         await self.accept()
+
+        participants = await self._sync_join_and_payload(self.scope["user"])
+        await self.channel_layer.group_send(
+            f"room_{self.room_id}",
+            {
+                "type": "participants_update",
+                "participants": participants,
+            }
+        )
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.group, self.channel_name)

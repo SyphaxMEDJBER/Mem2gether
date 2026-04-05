@@ -17,6 +17,7 @@ body {
 .navbar {
     background: #0f0f13 !important;
     border-bottom: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.22);
 }
 
 .navbar-brand {
@@ -140,7 +141,6 @@ body {
 }
 
 @media (max-width: 768px) {
-
     .hero {
         min-height: 620px;
         height: auto;
@@ -207,6 +207,7 @@ body {
     box-shadow: 0 8px 28px rgba(0,0,0,0.35);
     transition: 0.25s;
     height: 100%;
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
 .feature-card:hover {
@@ -238,6 +239,12 @@ footer {
 
 .text-muted {
     color: rgba(254, 254, 255, 0.75) !important;
+}
+
+.home-features {
+    margin-top: -26px;
+    position: relative;
+    z-index: 2;
 }
 
 /* --- SIGNIN PAGE --- */
@@ -394,6 +401,12 @@ footer {
     background: #1a1a20 !important;
 }
 
+#participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .room-main {
     flex: 1;
     padding: 2rem;
@@ -511,5 +524,3 @@ footer {
     padding: 10px 18px;
     border-radius: 10px;
 }
-
-

@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>Mem2gether</title>
 
     <!-- Bootstrap -->
@@ -37,9 +38,15 @@
                 {% if user.is_authenticated %}
 
                     <!-- CRÉER UNE ROOM -->
-                    <li class="nav-item">
-                        <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
-                    </li>
+                    {% if user.userprofile.role == "teacher" %}
+                        <li class="nav-item">
+                            <a class="nav-link px-3" href="/rooms/create/">Créer une room</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link px-3" href="/rooms/join/">Rejoindre une room</a>
+                        </li>
+                    {% endif %}
 
                     <!-- PROFIL -->
                     <li class="nav-item">
@@ -79,13 +86,15 @@
 <!-- CONTENU -->
 <main>
     <div class="container mt-3">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2" role="alert">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
+        {% block page_messages %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endblock %}
     </div>
     {% block content %}{% endblock %}
 </main>
