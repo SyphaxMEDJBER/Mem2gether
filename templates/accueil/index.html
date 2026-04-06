@@ -7,36 +7,36 @@
     <div class="hero-actions-bar d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-4">
         <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
         {% if user.is_authenticated and user.userprofile.role == "teacher" %}
-        <a href="/rooms/create/" class="btn btn-outline-light btn-lg px-4">Créer une room</a>
+        <a href="/rooms/create/" class="btn btn-outline-light btn-lg px-4">Creer une room</a>
         {% elif not user.is_authenticated %}
-        <a href="/signup" class="btn btn-outline-light btn-lg px-4">Créer un compte</a>
+        <a href="/signup" class="btn btn-outline-light btn-lg px-4">Creer un compte</a>
         {% endif %}
         <a href="/rooms/join/" class="btn btn-outline-light btn-lg px-4">Rejoindre une room</a>
     </div>
 </div>
 
 <div class="container py-5 home-features">
-    <h2 class="text-center fw-bold mb-5">Fonctionnalités</h2>
+    <h2 class="text-center fw-bold mb-5">Fonctionnalites</h2>
 
     <div class="row g-4">
         <div class="col-md-4">
             <div class="feature-card">
-                <h4 class="fw-bold">Lecture synchronisée</h4>
-                <p class="text-muted">Regardez la même vidéo au même moment.</p>
+                <h4 class="fw-bold">Cours synchronises</h4>
+                <p class="text-muted">Le professeur pilote la video et toute la classe suit au meme rythme.</p>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="feature-card">
-                <h4 class="fw-bold">Chat en direct</h4>
-                <p class="text-muted">Discutez en temps réel avec votre groupe.</p>
+                <h4 class="fw-bold">Tableau et chat</h4>
+                <p class="text-muted">Expliquez, dessinez et echangez en direct pendant le cours.</p>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="feature-card">
-                <h4 class="fw-bold">Playlist partagée</h4>
-                <p class="text-muted">Ajoutez et organisez vos vidéos.</p>
+                <h4 class="fw-bold">Notes personnelles</h4>
+                <p class="text-muted">Chaque etudiant cree ses propres reperes pour reviser sans gener la classe.</p>
             </div>
         </div>
     </div>
