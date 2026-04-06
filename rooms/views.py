@@ -42,6 +42,12 @@ def _broadcast_participants(room):
     )
 
 
+def _broadcast_room_closed(room_id):
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(f"room_{room_id}", {"type": "room_closed"})
+    async_to_sync(channel_layer.group_send)(f"chat_{room_id}", {"type": "room_closed"})
+
+
 def _build_youtube_sync_payload(room):
     current_time = room.youtube_time or 0.0
     if room.youtube_state == "playing" and room.youtube_updated_at:
@@ -76,14 +82,20 @@ def _serialize_message(message):
 
 @login_required
 def participants_json(request, room_id):
-    room = Room.objects.get(room_id=room_id)
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return JsonResponse({"room_closed": True}, status=404)
     Participant.objects.get_or_create(room=room, user=request.user)
     return JsonResponse({"participants": _serialize_participants(room)})
 
 
 @login_required
 def room_messages_state(request, room_id):
-    room = Room.objects.get(room_id=room_id)
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return JsonResponse({"room_closed": True}, status=404)
     Participant.objects.get_or_create(room=room, user=request.user)
 
     if request.method == "GET":
@@ -115,7 +127,10 @@ def room_messages_state(request, room_id):
 
 @login_required
 def youtube_sync_state(request, room_id):
-    room = Room.objects.get(room_id=room_id)
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return JsonResponse({"room_closed": True}, status=404)
     Participant.objects.get_or_create(room=room, user=request.user)
 
     if request.method == "GET":
@@ -173,7 +188,10 @@ def youtube_sync_state(request, room_id):
 
 @login_required
 def whiteboard_sync_state(request, room_id):
-    room = Room.objects.get(room_id=room_id)
+    try:
+        room = Room.objects.get(room_id=room_id)
+    except Room.DoesNotExist:
+        return JsonResponse({"room_closed": True}, status=404)
     Participant.objects.get_or_create(room=room, user=request.user)
 
     if request.method == "GET":
@@ -355,6 +373,11 @@ def room_view(request, room_id):
 @login_required
 def leave_room(request, room_id):
     room = Room.objects.get(room_id=room_id)
+    if request.user == room.creator:
+        _broadcast_room_closed(room.room_id)
+        room.delete()
+        return redirect("home")
+
     Participant.objects.filter(room=room, user=request.user).delete()
     _broadcast_participants(room)
     return redirect("home")

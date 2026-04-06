@@ -272,6 +272,13 @@ document.addEventListener("DOMContentLoaded", () => {
         log.scrollTop = log.scrollHeight;
         return p;
     }
+    function redirectHomeIfRoomClosedResponse(response, data = null) {
+        if ((response && response.status === 404) || (data && data.room_closed)) {
+            window.location.href = "/";
+            return true;
+        }
+        return false;
+    }
     function appendChatMessage(message) {
         const node = appendChat("chat-log-yt", message.user, message.content);
         if (node) node.dataset.messageId = String(message.id || "");
@@ -324,8 +331,8 @@ document.addEventListener("DOMContentLoaded", () => {
     async function refreshParticipants() {
         try {
             const response = await fetch(`/rooms/${roomId}/participants/`, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-            if (!response.ok) return;
             const data = await response.json();
+            if (redirectHomeIfRoomClosedResponse(response, data) || !response.ok) return;
             renderParticipants(data.participants || []);
         } catch (err) {
             console.log("participants refresh failed", err);
@@ -351,8 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const response = await fetch(`${messagesStateUrl}?after=${chatLastMessageId}`, {
                 headers: { "X-Requested-With": "XMLHttpRequest" },
             });
-            if (!response.ok) return;
             const data = await response.json();
+            if (redirectHomeIfRoomClosedResponse(response, data) || !response.ok) return;
             (data.messages || []).forEach(appendChatMessage);
         } catch (err) {
             console.log("chat refresh failed", err);
@@ -412,8 +419,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!studentFollowingSync) return;
         try {
             const response = await fetch(syncStateUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-            if (!response.ok) return;
             const data = await response.json();
+            if (redirectHomeIfRoomClosedResponse(response, data) || !response.ok) return;
             applyYT(data);
         } catch (err) {
             console.log("sync fetch failed", err);
@@ -437,8 +444,8 @@ document.addEventListener("DOMContentLoaded", () => {
     async function requestWhiteboardSync() {
         try {
             const response = await fetch(whiteboardStateUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-            if (!response.ok) return;
             const data = await response.json();
+            if (redirectHomeIfRoomClosedResponse(response, data) || !response.ok) return;
             applyWhiteboardState(data);
         } catch (err) {
             console.log("whiteboard sync failed", err);
