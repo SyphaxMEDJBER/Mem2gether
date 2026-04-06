@@ -811,35 +811,4 @@ document.addEventListener("DOMContentLoaded", () => {
     initWhiteboard();
 });
 </script>
-
-<div class="mt-3">
-    <h5>Reactions</h5>
-    <div class="d-flex gap-2">
-        <button class="reaction-btn" data-reaction="🔥">🔥</button>
-        <button class="reaction-btn" data-reaction="😂">😂</button>
-        <button class="reaction-btn" data-reaction="❤️">❤️</button>
-        <button class="reaction-btn" data-reaction="😮">😮</button>
-    </div>
-    <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
-</div>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    const feed = document.getElementById("reaction-feed");
-    const reactionSocket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/reactions/{{ room.room_id }}/");
-    document.querySelectorAll(".reaction-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const reaction = btn.dataset.reaction || btn.textContent;
-            if (reactionSocket.readyState === WebSocket.OPEN) reactionSocket.send(JSON.stringify({ reaction }));
-        });
-    });
-    reactionSocket.onmessage = e => {
-        const data = JSON.parse(e.data);
-        if (!feed) return;
-        const span = document.createElement("span");
-        span.className = "me-2";
-        span.textContent = `${data.user} ${data.reaction}`;
-        feed.appendChild(span);
-    };
-});
-</script>
 {% endblock %}
