@@ -1,16 +1,10 @@
-{# templates/rooms/room.html #}
 {% extends "base.html" %}
 {% load static %}
 {% block page_messages %}{% endblock %}
 {% block content %}
-
 <style>
-    .role-badge {
-        font-size: 0.75rem;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-    }
-    .notes-panel {
+    .role-badge { font-size: 0.75rem; letter-spacing: 0.03em; text-transform: uppercase; }
+    .notes-panel, .whiteboard-panel {
         background: rgba(255, 255, 255, 0.04);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 16px;
@@ -33,8 +27,7 @@
         padding: 0.85rem 1rem;
         cursor: pointer;
     }
-    .note-card:hover,
-    .note-card:focus {
+    .note-card:hover, .note-card:focus {
         border-color: rgba(255, 193, 7, 0.6);
         background: rgba(255, 193, 7, 0.08);
         outline: none;
@@ -46,16 +39,7 @@
         gap: 0.75rem;
         margin-bottom: 0.35rem;
     }
-    .note-time {
-        font-weight: 700;
-        color: #ffc107;
-    }
-    .whiteboard-panel {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 1rem;
-    }
+    .note-time { font-weight: 700; color: #ffc107; }
     .whiteboard-canvas {
         width: 100%;
         height: 320px;
@@ -64,10 +48,7 @@
         border-radius: 12px;
         cursor: crosshair;
     }
-    .whiteboard-canvas.readonly {
-        cursor: default;
-        opacity: 0.92;
-    }
+    .whiteboard-canvas.readonly { cursor: default; opacity: 0.92; }
 </style>
 
 <div class="room-header">
@@ -75,8 +56,7 @@
         <div class="text-start">
             <strong>Room {{ room.room_id }}</strong>
             <p class="mb-0 text-muted">
-                Créée par <span class="text-warning">{{ room.creator.username }}</span> — Mode :
-                <span class="text-warning" id="room-mode-label">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span>
+                Créée par <span class="text-warning">{{ room.creator.username }}</span> — Mode : <span class="text-warning">YouTube</span>
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -87,25 +67,20 @@
 </div>
 
 <div class="room-wrapper">
-
     <aside class="room-sidebar">
         <div id="participants-list">
             <h5 class="mb-3">Participants</h5>
             {% for p in participants %}
-                <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
-                    <div class="d-flex flex-column">
-                        <span class="fw-semibold">{{ p.user.username }}</span>
-                        <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Étudiant{% endif %}</span>
-                    </div>
-                    <div class="d-flex gap-1">
-                        {% if p.user.userprofile.role == 'teacher' %}
-                            <span class="badge bg-warning text-dark">Prof</span>
-                        {% endif %}
-                        {% if p.user == request.user %}
-                            <span class="badge bg-success">Moi</span>
-                        {% endif %}
-                    </div>
+            <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column">
+                    <span class="fw-semibold">{{ p.user.username }}</span>
+                    <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Étudiant{% endif %}</span>
                 </div>
+                <div class="d-flex gap-1">
+                    {% if p.user.userprofile.role == 'teacher' %}<span class="badge bg-warning text-dark">Prof</span>{% endif %}
+                    {% if p.user == request.user %}<span class="badge bg-success">Moi</span>{% endif %}
+                </div>
+            </div>
             {% endfor %}
         </div>
 
@@ -117,246 +92,98 @@
                 <li>ID : {{ room.room_id }}</li>
                 <li>Créateur : {{ room.creator.username }}</li>
                 <li>Votre rôle : {{ user_role|title }}</li>
-                <li>Mode : <span id="room-mode-info">{% if room.mode == "youtube" %}YouTube{% else %}Photos{% endif %}</span></li>
+                <li>Mode : YouTube</li>
                 <li>Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
             </ul>
-
-            <a href="/rooms/{{ room.room_id }}/leave/" class="btn btn-outline-light w-100 mt-4">
-                Quitter la room
-            </a>
+            <a href="/rooms/{{ room.room_id }}/leave/" class="btn btn-outline-light w-100 mt-4">Quitter la room</a>
         </div>
     </aside>
 
     <section class="room-main">
-
-        <!-- MODE SWITCH -->
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div class="d-flex gap-2">
-                <button class="mode-btn {% if room.mode == 'photos' %}active{% endif %}" data-mode="photos" type="button">
-                    Mode Photos
-                </button>
-                <button class="mode-btn {% if room.mode == 'youtube' %}active{% endif %}" data-mode="youtube" type="button">
-                    Mode YouTube
-                </button>
+            <div>
+                <h5 class="mb-1">Session vidéo collaborative</h5>
+                <span class="text-muted small">Synchronisation en temps réel</span>
             </div>
-            <span class="text-muted small">Synchronisation en temps réel</span>
         </div>
 
-        <!-- ===================== PHOTOS MODE ===================== -->
-        <div id="photos-mode" {% if room.mode != "photos" %}style="display:none;"{% endif %}>
+        <div class="row g-3 align-items-stretch mb-3">
+            <div class="col-lg-8">
+                <div class="sync-image-wrapper h-100" style="padding:0;">
+                    <div id="yt-player" style="width:100%; height:100%;"></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="whiteboard-panel h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                        <h6 class="mb-0">Tableau blanc</h6>
+                        {% if is_teacher %}<button id="whiteboard-clear" type="button" class="btn btn-sm btn-outline-light">Effacer</button>{% endif %}
+                    </div>
+                    <canvas id="whiteboard-canvas" class="whiteboard-canvas {% if not is_teacher %}readonly{% endif %}" width="900" height="320"></canvas>
+                </div>
+            </div>
+        </div>
 
-            <div class="sync-image-wrapper mb-3 text-center" id="photo-wrapper">
-                {% if images %}
-                    {% for img in images %}
-                        {% if img.is_displayed %}
-                            <img id="sync-image" src="{{ img.image_url }}" style="max-height:100%; max-width:100%; border-radius:12px;">
-                            <p class="text-muted mt-2">Ajoutée par <strong>{{ img.uploaded_by.username }}</strong></p>
-                        {% endif %}
+        <form method="POST" class="mb-4">
+            {% csrf_token %}
+            <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
+            <button type="submit" class="btn btn-primary w-100">Définir la vidéo</button>
+        </form>
+
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+            <button id="yt-play" class="btn btn-primary" type="button">Play</button>
+            <button id="yt-pause" class="btn btn-outline-light" type="button">Pause</button>
+            <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+            <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
+            <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
+        </div>
+
+        <div class="notes-panel mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+                <h6 class="mb-0">Notes du cours</h6>
+                <span class="small text-muted">Triées par timecode, cliquez pour aller au passage</span>
+            </div>
+            <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
+            <ul id="yt-notes-list" class="notes-list"></ul>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-12">
+                <h5 class="mb-2">Chat</h5>
+                <div id="chat-log-yt" class="p-2 rounded-3 mb-2" style="height:200px; overflow-y:auto; background:#222;">
+                    {% for m in messages %}
+                    <p class="mb-1 text-light"><strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong> {{ m.content }}</p>
                     {% endfor %}
-                {% else %}
-                    <p id="no-photo" class="text-muted">Aucune image pour l’instant.</p>
-                {% endif %}
-            </div>
-
-            <form method="POST" enctype="multipart/form-data" class="mb-4">
-                {% csrf_token %}
-                <input type="file" name="image" accept="image/*" required class="form-control mb-2">
-                <button type="submit" class="btn btn-primary w-100">Ajouter une image</button>
-            </form>
-
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <h5 class="mb-2">File d’attente</h5>
-                    <div id="queue-list">
-                        {% for img in images %}
-                            <div class="queue-item" data-image-id="{{ img.id }}">
-                                <img src="{{ img.image_url }}">
-                                <div>
-                                    <div class="fw-semibold">#{{ img.position }}</div>
-                                    <div class="text-muted small">par {{ img.uploaded_by.username }}</div>
-                                </div>
-                            </div>
-                        {% empty %}
-                            <div class="queue-item">
-                                <p class="mb-1 fw-semibold">Aucun média</p>
-                            </div>
-                        {% endfor %}
-                    </div>
                 </div>
-
-                <div class="col-md-8">
-                    <h5 class="mb-2">Chat</h5>
-
-                    <div id="chat-log" class="p-2 rounded-3 mb-2"
-                         style="height:180px; overflow-y:auto; background:#222;">
-                        {% for m in messages %}
-                            <p class="mb-1 text-light">
-                                <strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong>
-                                {{ m.content }}
-                            </p>
-                        {% endfor %}
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <input type="text" id="chat-message-input" class="form-control" placeholder="Message..." />
-                        <button id="chat-message-submit" class="btn btn-primary">Envoyer</button>
-                    </div>
+                <div class="d-flex gap-2">
+                    <input type="text" id="chat-message-input-yt" class="form-control" placeholder="Message..." />
+                    <button id="chat-message-submit-yt" class="btn btn-primary">Envoyer</button>
                 </div>
             </div>
         </div>
-
-        <!-- ===================== YOUTUBE MODE ===================== -->
-        <div id="youtube-mode" {% if room.mode != "youtube" %}style="display:none;"{% endif %}>
-
-            <div class="row g-3 align-items-stretch mb-3">
-                <div class="col-lg-8">
-                    <div class="sync-image-wrapper h-100" style="padding:0;">
-                        <div id="yt-player" style="width:100%; height:100%;"></div>
-                    </div>
-                </div>
-
-                <div class="col-lg-4">
-                    <div class="whiteboard-panel h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                            <h6 class="mb-0">Tableau blanc</h6>
-                            {% if is_teacher %}
-                                <button id="whiteboard-clear" type="button" class="btn btn-sm btn-outline-light">Effacer</button>
-                            {% endif %}
-                        </div>
-                        <canvas id="whiteboard-canvas" class="whiteboard-canvas {% if not is_teacher %}readonly{% endif %}" width="900" height="320"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <form method="POST" class="mb-4">
-                {% csrf_token %}
-                <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
-                <button type="submit" class="btn btn-primary w-100">Définir la vidéo</button>
-            </form>
-
-            <div class="d-flex gap-2 mb-3 flex-wrap">
-                <button id="yt-play" class="btn btn-primary" type="button">Play</button>
-                <button id="yt-pause" class="btn btn-outline-light" type="button">Pause</button>
-                <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
-            </div>
-
-            <div class="d-flex gap-2 mb-3">
-                <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
-                <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
-            </div>
-            <div class="notes-panel mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                    <h6 class="mb-0">Notes du cours</h6>
-                    <span class="small text-muted">Triées par timecode, cliquez pour aller au passage</span>
-                </div>
-                <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
-                <ul id="yt-notes-list" class="notes-list"></ul>
-            </div>
-
-            <div class="row g-3">
-                <div class="col-md-12">
-                    <h5 class="mb-2">Chat</h5>
-
-                    <div id="chat-log-yt" class="p-2 rounded-3 mb-2"
-                         style="height:200px; overflow-y:auto; background:#222;">
-                        {% for m in messages %}
-                            <p class="mb-1 text-light">
-                                <strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong>
-                                {{ m.content }}
-                            </p>
-                        {% endfor %}
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <input type="text" id="chat-message-input-yt" class="form-control" placeholder="Message..." />
-                        <button id="chat-message-submit-yt" class="btn btn-primary">Envoyer</button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
     </section>
-
 </div>
 
 <script src="{% static 'js/course_notes.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-
     const currentUser = "{{ request.user.username }}";
-    const creatorUser = "{{ room.creator.username }}";
     const roomId = "{{ room.room_id }}";
     const pageOrigin = window.location.origin;
     const pageHref = window.location.href;
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
-    const photosModeEl = document.getElementById("photos-mode");
-    const ytModeEl = document.getElementById("youtube-mode");
-    const modeLabelEl = document.getElementById("room-mode-label");
-    const modeInfoEl = document.getElementById("room-mode-info");
-    const modeButtons = document.querySelectorAll("[data-mode]");
-    let currentMode = "{{ room.mode }}";
-    let ytSocket = null;
-
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(";").shift();
-        return "";
-    }
-
-    function setMode(mode) {
-        if (!mode) return;
-        currentMode = mode;
-        const label = (mode === "youtube") ? "YouTube" : "Photos";
-        if (photosModeEl) photosModeEl.style.display = (mode === "photos") ? "" : "none";
-        if (ytModeEl) ytModeEl.style.display = (mode === "youtube") ? "" : "none";
-        if (modeLabelEl) modeLabelEl.textContent = label;
-        if (modeInfoEl) modeInfoEl.textContent = label;
-
-        modeButtons.forEach(btn => {
-            btn.classList.toggle("active", btn.dataset.mode === mode);
-        });
-
-        if (mode === "youtube") {
-            ensureYouTubeAPI();
-            requestYTSync();
-        }
-    }
-
-    async function requestMode(mode) {
-        if (!mode || mode === currentMode) return;
-        const csrftoken = getCookie("csrftoken");
-        try {
-            const res = await fetch(`/rooms/${roomId}/set-mode/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-CSRFToken": csrftoken
-                },
-                body: `mode=${encodeURIComponent(mode)}`
-            });
-            if (!res.ok) throw new Error("bad response");
-            const data = await res.json();
-            if (data.mode) setMode(data.mode);
-        } catch (err) {
-            console.log("mode switch failed", err);
-        }
-    }
-
-    modeButtons.forEach(btn => {
-        btn.addEventListener("click", () => {
-            requestMode(btn.dataset.mode);
-        });
-    });
-
-    // ================= WS CHAT =================
     const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
-    chatSocket.onopen = () => console.log("WS chat CONNECTED");
-    chatSocket.onerror = (e) => console.log("WS chat ERROR", e);
-    chatSocket.onclose = (e) => console.log("WS chat CLOSED", e.code, e.reason);
+    let ytSocket = null;
+    let player = null;
+    let ytReady = false;
+    let suppress = false;
+    let pendingYTEvent = null;
+    let pendingSyncRequest = false;
 
-    function appendChat(targetId, user, msg){
+    function appendChat(targetId, user, msg) {
         const log = document.getElementById(targetId);
         if (!log) return;
         const p = document.createElement("p");
@@ -366,57 +193,30 @@ document.addEventListener("DOMContentLoaded", () => {
         log.scrollTop = log.scrollHeight;
     }
 
-    chatSocket.onmessage = e => {
-        const data = JSON.parse(e.data);
-
-        if (data.type === "participants") {
-            renderParticipants(data.participants || []);
-        }
-
-        if (data.type === "mode") {
-            setMode(data.mode);
-        }
-
-        if (data.type === "room_closed") {
-            window.location.href = "/";
-        }
-
-        if (data.type === "chat") {
-            appendChat("chat-log", data.user, data.message);
-            appendChat("chat-log-yt", data.user, data.message);
-        }
-    };
-
     function renderParticipants(participants) {
         const list = document.getElementById("participants-list");
         if (!list) return;
-
         let html = "<h5 class='mb-3'>Participants</h5>";
         participants.forEach(participant => {
-            const username = participant.username;
-            const isCreator = !!participant.is_creator;
-            const isCurrentUser = username === currentUser;
             const role = participant.role === "teacher" ? "Professeur" : "Étudiant";
-            html += `
-                <div class="participant-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex flex-column">
-                        <span class="fw-semibold">${username}</span>
-                        <span class="small text-muted">${role}</span>
-                    </div>
-                    <div class="d-flex gap-1">
-                        ${participant.role === "teacher" ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
-                        ${isCurrentUser ? '<span class="badge bg-success">Moi</span>' : ""}
-                    </div>
-                </div>`;
+            const isCurrentUser = participant.username === currentUser;
+            html += `<div class="participant-item d-flex justify-content-between align-items-center">
+                <div class="d-flex flex-column">
+                    <span class="fw-semibold">${participant.username}</span>
+                    <span class="small text-muted">${role}</span>
+                </div>
+                <div class="d-flex gap-1">
+                    ${participant.role === "teacher" ? '<span class="badge bg-warning text-dark">Prof</span>' : ""}
+                    ${isCurrentUser ? '<span class="badge bg-success">Moi</span>' : ""}
+                </div>
+            </div>`;
         });
         list.innerHTML = html;
     }
 
     async function refreshParticipants() {
         try {
-            const response = await fetch(`/rooms/${roomId}/participants/`, {
-                headers: { "X-Requested-With": "XMLHttpRequest" }
-            });
+            const response = await fetch(`/rooms/${roomId}/participants/`, { headers: { "X-Requested-With": "XMLHttpRequest" } });
             if (!response.ok) return;
             const data = await response.json();
             renderParticipants(data.participants || []);
@@ -425,224 +225,95 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function bindChat(inputId, btnId){
+    function bindChat(inputId, btnId) {
         const input = document.getElementById(inputId);
         const btn = document.getElementById(btnId);
         if (!input || !btn) return;
-
         const send = () => {
             const val = input.value.trim();
-            if (!val) return;
-            if (chatSocket.readyState !== WebSocket.OPEN) return;
+            if (!val || chatSocket.readyState !== WebSocket.OPEN) return;
             chatSocket.send(JSON.stringify({ message: val }));
             input.value = "";
         };
-
         btn.onclick = send;
         input.onkeydown = e => { if (e.key === "Enter") send(); };
     }
 
-    bindChat("chat-message-input", "chat-message-submit");
-    bindChat("chat-message-input-yt", "chat-message-submit-yt");
-
-    // ================= WS PHOTOS =================
-    const photoSocket = new WebSocket(protocol + location.host + "/ws/photos/" + roomId + "/");
-    const photoWrapper = document.getElementById("photo-wrapper");
-    const queueList = document.getElementById("queue-list");
-
-    function renderPhoto(url, user) {
-        if (!photoWrapper) return;
-        photoWrapper.innerHTML = `
-            <img id="sync-image" src="${url}?t=${Date.now()}" style="max-height:100%; max-width:100%; border-radius:12px;">
-            <p class="text-muted mt-2">Ajoutée par <strong>${user}</strong></p>
-        `;
-    }
-
-    photoSocket.onmessage = e => {
+    chatSocket.onmessage = e => {
         const data = JSON.parse(e.data);
-        if (data.type === "photo" && data.url) {
-            renderPhoto(data.url, data.user || "Anonyme");
-            if (queueList && data.id) {
-                const existing = queueList.querySelector(`[data-image-id="${data.id}"]`);
-                if (!existing) {
-                    const item = document.createElement("div");
-                    item.className = "queue-item";
-                    item.dataset.imageId = data.id;
-                    item.innerHTML = `
-                        <img src="${data.url}">
-                        <div>
-                            <div class="fw-semibold">#${data.position || ""}</div>
-                            <div class="text-muted small">par ${data.user || "Anonyme"}</div>
-                        </div>
-                    `;
-                    queueList.appendChild(item);
-                }
-            }
-        }
+        if (data.type === "participants") renderParticipants(data.participants || []);
+        if (data.type === "room_closed") window.location.href = "/";
+        if (data.type === "chat") appendChat("chat-log-yt", data.user, data.message);
     };
 
-    function bindQueueClicks() {
-        const list = document.getElementById("queue-list");
-        if (!list) return;
-        list.addEventListener("click", async (e) => {
-            const item = e.target.closest(".queue-item[data-image-id]");
-            if (!item) return;
-            const imageId = item.dataset.imageId;
-            if (!imageId) return;
-            const csrftoken = getCookie("csrftoken");
-            try {
-                const res = await fetch(`/rooms/${roomId}/set-image/`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "X-CSRFToken": csrftoken
-                    },
-                    body: `image_id=${encodeURIComponent(imageId)}`
-                });
-                if (!res.ok) throw new Error("bad response");
-            } catch (err) {
-                console.log("set image failed", err);
-            }
-        });
-    }
-
-    async function refreshCurrentPhoto() {
-        try {
-            const r = await fetch("/rooms/" + roomId + "/current-image/");
-            const data = await r.json();
-            if (data.url) renderPhoto(data.url, data.user || "Anonyme");
-        } catch {}
-    }
-    bindQueueClicks();
-    refreshCurrentPhoto();
-    setInterval(refreshCurrentPhoto, 3000);
+    bindChat("chat-message-input-yt", "chat-message-submit-yt");
     refreshParticipants();
     setInterval(refreshParticipants, 2000);
 
-    // ================= YOUTUBE =================
-    ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
-
-    let player = null;
-    let ytReady = false;
-    let suppress = false;
-    let pendingYTEvent = null;
-    let pendingSyncRequest = false;
-
-    function sendYT(payload){
-        try { ytSocket.send(JSON.stringify(payload)); } catch {}
-    }
-
-    function requestYTSync(){
+    function sendYT(payload) { try { ytSocket.send(JSON.stringify(payload)); } catch {} }
+    function requestYTSync() {
         if (!ytSocket) return;
-        if (ytSocket.readyState === WebSocket.OPEN) {
-            sendYT({type: "sync_request"});
-        } else {
-            pendingSyncRequest = true;
-        }
+        if (ytSocket.readyState === WebSocket.OPEN) sendYT({ type: "sync_request" });
+        else pendingSyncRequest = true;
     }
-
-    function ensureYouTubeAPI(){
+    function ensureYouTubeAPI() {
         if (window.YT && window.YT.Player) return;
         const s = document.createElement("script");
         s.src = "https://www.youtube.com/iframe_api";
         document.head.appendChild(s);
     }
-
-    window.onYouTubeIframeAPIReady = function(){
-        player = new YT.Player("yt-player", {
-            videoId: "{{ room.youtube_video_id|default:'' }}",
-            host: "https://www.youtube.com",
-            playerVars: {
-                playsinline: 1,
-                controls: 1,
-                origin: pageOrigin,
-                widget_referrer: pageHref,
-            },
-            events: {
-                onReady: () => {
-                    ytReady = true;
-                    if (pendingYTEvent) {
-                        applyYT(pendingYTEvent);
-                        pendingYTEvent = null;
-                    }
-                },
-                onError: (ev) => {
-                    console.error("youtube_player_error", ev.data);
-                },
-                onStateChange: (ev) => {
-                    if (suppress) return;
-                    if (!ytReady) return;
-
-                    const t = player.getCurrentTime ? player.getCurrentTime() : 0;
-
-                    if (ev.data === YT.PlayerState.PLAYING) sendYT({type:"play", t});
-                    if (ev.data === YT.PlayerState.PAUSED)  sendYT({type:"pause", t});
-                }
-            }
-        });
-    };
-
-    function applyYT(ev){
-        if (!player || !ytReady) {
-            pendingYTEvent = ev;
-            return;
-        }
-
+    function applyYT(ev) {
+        if (!player || !ytReady) { pendingYTEvent = ev; return; }
         suppress = true;
-
         try {
             if (ev.type === "init") {
-                if (ev.videoId) {
-                    player.loadVideoById(ev.videoId, ev.t || 0);
-                }
-                if (ev.state === "playing") {
-                    setTimeout(() => { player.playVideo(); }, 200);
-                } else if (ev.state === "paused") {
-                    setTimeout(() => { player.pauseVideo(); }, 200);
-                }
+                if (ev.videoId) player.loadVideoById(ev.videoId, ev.t || 0);
+                if (ev.state === "playing") setTimeout(() => player.playVideo(), 200);
+                else if (ev.state === "paused") setTimeout(() => player.pauseVideo(), 200);
             }
-
-            if (ev.type === "set_video" && ev.videoId) {
-                player.loadVideoById(ev.videoId, ev.t || 0);
-            }
-
-            if (ev.type === "play") {
-                if (typeof ev.t === "number") player.seekTo(ev.t, true);
-                player.playVideo();
-            }
-
-            if (ev.type === "pause") {
-                if (typeof ev.t === "number") player.seekTo(ev.t, true);
-                player.pauseVideo();
-            }
-
-            if (ev.type === "seek") {
-                if (typeof ev.t === "number") player.seekTo(ev.t, true);
-            }
-
+            if (ev.type === "set_video" && ev.videoId) player.loadVideoById(ev.videoId, ev.t || 0);
+            if (ev.type === "play") { if (typeof ev.t === "number") player.seekTo(ev.t, true); player.playVideo(); }
+            if (ev.type === "pause") { if (typeof ev.t === "number") player.seekTo(ev.t, true); player.pauseVideo(); }
+            if (ev.type === "seek" && typeof ev.t === "number") player.seekTo(ev.t, true);
             if (ev.type === "sync") {
                 if (typeof ev.t === "number") player.seekTo(ev.t, true);
                 if (ev.state === "playing") player.playVideo();
-                if (ev.state === "paused")  player.pauseVideo();
+                if (ev.state === "paused") player.pauseVideo();
             }
         } finally {
             setTimeout(() => { suppress = false; }, 200);
         }
     }
 
+    ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
     ytSocket.onopen = () => {
         if (pendingSyncRequest) {
-            sendYT({type: "sync_request"});
+            sendYT({ type: "sync_request" });
             pendingSyncRequest = false;
         }
     };
+    ytSocket.onmessage = e => applyYT(JSON.parse(e.data));
 
-    ytSocket.onmessage = e => {
-        const ev = JSON.parse(e.data);
-        applyYT(ev);
+    window.onYouTubeIframeAPIReady = function() {
+        player = new YT.Player("yt-player", {
+            videoId: "{{ room.youtube_video_id|default:'' }}",
+            host: "https://www.youtube.com",
+            playerVars: { playsinline: 1, controls: 1, origin: pageOrigin, widget_referrer: pageHref },
+            events: {
+                onReady: () => {
+                    ytReady = true;
+                    if (pendingYTEvent) { applyYT(pendingYTEvent); pendingYTEvent = null; }
+                },
+                onStateChange: (ev) => {
+                    if (suppress || !ytReady) return;
+                    const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (ev.data === YT.PlayerState.PLAYING) sendYT({ type: "play", t });
+                    if (ev.data === YT.PlayerState.PAUSED) sendYT({ type: "pause", t });
+                }
+            }
+        });
     };
 
-    // Controls
     const btnPlay = document.getElementById("yt-play");
     const btnPause = document.getElementById("yt-pause");
     const btnSync = document.getElementById("yt-sync");
@@ -656,25 +327,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function formatTimecode(totalSeconds) {
         const sec = Math.max(0, Number(totalSeconds) || 0);
-        const minutes = Math.floor(sec / 60);
-        const seconds = sec % 60;
-        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+        return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
     }
-
     function seekToNoteTime(timecode) {
         const t = Math.max(0, Number(timecode) || 0);
         if (!player || !ytReady) return;
         sendYT({ type: "seek", t });
         applyYT({ type: "seek", t });
     }
-
     function setNotesStatus(message, isError = false) {
         if (!notesStatus) return;
         notesStatus.textContent = message || "";
         notesStatus.classList.toggle("text-danger", Boolean(isError && message));
         notesStatus.classList.toggle("text-muted", !isError || !message);
     }
-
     function buildEmptyNoteItem() {
         const empty = document.createElement("li");
         empty.className = "note-card text-light";
@@ -682,100 +348,66 @@ document.addEventListener("DOMContentLoaded", () => {
         empty.textContent = "Aucune note enregistree pour le moment.";
         return empty;
     }
-
     function buildNoteItem(note) {
         const item = document.createElement("li");
         item.className = "note-card text-light";
         item.dataset.timecode = String(note.timecode);
         item.dataset.noteId = String(note.id || "");
-        item.style.cursor = "pointer";
         item.tabIndex = 0;
-
-        const author = note.user || "Anonyme";
         const header = document.createElement("div");
         header.className = "note-card-header";
-
         const meta = document.createElement("div");
         meta.className = "small text-muted";
-        meta.textContent = `Par ${author}`;
-
+        meta.textContent = `Par ${note.user || "Anonyme"}`;
         const time = document.createElement("span");
         time.className = "note-time";
         time.textContent = formatTimecode(note.timecode);
-
         header.appendChild(meta);
         header.appendChild(time);
-
         const content = document.createElement("div");
         content.textContent = note.content;
-
         const goBtn = document.createElement("button");
         goBtn.type = "button";
         goBtn.className = "btn btn-sm btn-outline-light";
         goBtn.textContent = "Aller a la video";
-        goBtn.title = "Aller a ce moment";
-        goBtn.addEventListener("click", (event) => {
-            event.stopPropagation();
-            seekToNoteTime(note.timecode);
-        });
-
+        goBtn.addEventListener("click", event => { event.stopPropagation(); seekToNoteTime(note.timecode); });
         item.addEventListener("click", () => seekToNoteTime(note.timecode));
-        item.addEventListener("keydown", (event) => {
+        item.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 seekToNoteTime(note.timecode);
             }
         });
-
         item.appendChild(header);
         item.appendChild(content);
         item.appendChild(goBtn);
         return item;
     }
-
     function appendNote(note) {
         if (!notesList) return;
         const emptyItem = notesList.querySelector("[data-empty='true']");
         if (emptyItem) emptyItem.remove();
-
         const item = buildNoteItem(note);
         const noteTimecode = Number(note.timecode) || 0;
         const existingItems = Array.from(notesList.querySelectorAll("li[data-timecode]"));
-        const insertBefore = existingItems.find((existing) => {
+        const insertBefore = existingItems.find(existing => {
             const existingTimecode = Number(existing.dataset.timecode) || 0;
-            if (noteTimecode !== existingTimecode) {
-                return noteTimecode < existingTimecode;
-            }
+            if (noteTimecode !== existingTimecode) return noteTimecode < existingTimecode;
             return (Number(note.id) || 0) < (Number(existing.dataset.noteId) || 0);
         });
-
-        if (insertBefore) {
-            notesList.insertBefore(item, insertBefore);
-            return;
-        }
-
-        notesList.appendChild(item);
+        if (insertBefore) notesList.insertBefore(item, insertBefore);
+        else notesList.appendChild(item);
     }
-
-    function getCourseNotesAPI() {
-        return window.CourseNotesAPI || null;
-    }
-
+    function getCourseNotesAPI() { return window.CourseNotesAPI || null; }
     async function loadCourseNotes() {
         if (!notesList) return;
         notesList.innerHTML = "";
         setNotesStatus("Chargement des notes...");
         try {
             const api = getCourseNotesAPI();
-            if (!api) {
-                throw new Error("course_notes_api_unavailable");
-            }
+            if (!api) throw new Error("course_notes_api_unavailable");
             const notes = await api.fetchNotes(roomId);
-            notes.sort((a, b) => {
-                const timeDiff = (Number(a.timecode) || 0) - (Number(b.timecode) || 0);
-                if (timeDiff !== 0) return timeDiff;
-                return (Number(a.id) || 0) - (Number(b.id) || 0);
-            });
+            notes.sort((a, b) => ((Number(a.timecode) || 0) - (Number(b.timecode) || 0)) || ((Number(a.id) || 0) - (Number(b.id) || 0)));
             if (!notes.length) {
                 notesList.appendChild(buildEmptyNoteItem());
                 setNotesStatus("");
@@ -793,39 +425,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnPlay) btnPlay.onclick = () => {
         if (!player || !ytReady) return;
         const t = player.getCurrentTime();
-        sendYT({type:"play", t});
-        applyYT({type:"play", t});
+        sendYT({ type: "play", t });
+        applyYT({ type: "play", t });
     };
-
     if (btnPause) btnPause.onclick = () => {
         if (!player || !ytReady) return;
         const t = player.getCurrentTime();
-        sendYT({type:"pause", t});
-        applyYT({type:"pause", t});
+        sendYT({ type: "pause", t });
+        applyYT({ type: "pause", t });
     };
-
     if (btnSync) btnSync.onclick = () => {
         if (!player || !ytReady) return;
         const t = player.getCurrentTime();
         const state = player.getPlayerState() === 1 ? "playing" : "paused";
-        sendYT({type:"sync", t, state});
-        applyYT({type:"sync", t, state});
+        sendYT({ type: "sync", t, state });
+        applyYT({ type: "sync", t, state });
     };
-
     if (btnAddNote) btnAddNote.onclick = async () => {
         if (!inputNote) return;
         const content = inputNote.value.trim();
         if (!content) return;
-
         const api = getCourseNotesAPI();
-        if (!api) {
-            setNotesStatus("Le module de notes n'est pas charge.", true);
-            return;
-        }
-
-        const timecode = (player && ytReady && player.getCurrentTime)
-            ? Math.floor(player.getCurrentTime())
-            : 0;
+        if (!api) { setNotesStatus("Le module de notes n'est pas charge.", true); return; }
+        const timecode = (player && ytReady && player.getCurrentTime) ? Math.floor(player.getCurrentTime()) : 0;
         setNotesStatus("Enregistrement de la note...");
         try {
             const note = await api.addNote(timecode, content, roomId);
@@ -838,68 +460,48 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    loadCourseNotes();
-    setMode(currentMode);
-
     function initWhiteboard() {
         if (!isTeacher || !whiteboardCanvas) return;
-
         const ctx = whiteboardCanvas.getContext("2d");
         if (!ctx) return;
-
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.strokeStyle = "#111";
-
         let drawing = false;
-
         function getPoint(event) {
             const rect = whiteboardCanvas.getBoundingClientRect();
-            const scaleX = whiteboardCanvas.width / rect.width;
-            const scaleY = whiteboardCanvas.height / rect.height;
             return {
-                x: (event.clientX - rect.left) * scaleX,
-                y: (event.clientY - rect.top) * scaleY,
+                x: (event.clientX - rect.left) * (whiteboardCanvas.width / rect.width),
+                y: (event.clientY - rect.top) * (whiteboardCanvas.height / rect.height),
             };
         }
-
         function startDraw(event) {
             drawing = true;
             const point = getPoint(event);
             ctx.beginPath();
             ctx.moveTo(point.x, point.y);
         }
-
         function draw(event) {
             if (!drawing) return;
             const point = getPoint(event);
             ctx.lineTo(point.x, point.y);
             ctx.stroke();
         }
-
-        function stopDraw() {
-            drawing = false;
-            ctx.closePath();
-        }
-
+        function stopDraw() { drawing = false; ctx.closePath(); }
         whiteboardCanvas.addEventListener("pointerdown", startDraw);
         whiteboardCanvas.addEventListener("pointermove", draw);
         whiteboardCanvas.addEventListener("pointerup", stopDraw);
         whiteboardCanvas.addEventListener("pointerleave", stopDraw);
-
-        if (whiteboardClear) {
-            whiteboardClear.addEventListener("click", () => {
-                ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
-            });
-        }
+        if (whiteboardClear) whiteboardClear.addEventListener("click", () => ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height));
     }
 
+    loadCourseNotes();
+    ensureYouTubeAPI();
+    requestYTSync();
     initWhiteboard();
-
 });
 </script>
 
-<!-- REACTIONS -->
 <div class="mt-3">
     <h5>Réactions</h5>
     <div class="d-flex gap-2">
@@ -907,51 +509,27 @@ document.addEventListener("DOMContentLoaded", () => {
         <button class="reaction-btn" data-reaction="😂">😂</button>
         <button class="reaction-btn" data-reaction="❤️">❤️</button>
         <button class="reaction-btn" data-reaction="😮">😮</button>
-
     </div>
     <div id="reaction-feed" class="mt-2 text-warning fw-bold"></div>
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-
-  const feed = document.getElementById("reaction-feed");
-  const reactionSocket = new WebSocket(
-    (location.protocol === "https:" ? "wss://" : "ws://") +
-    location.host + "/ws/reactions/{{ room.room_id }}/"
-  );
-
-  reactionSocket.onopen  = () => console.log(" WS reactions CONNECTED");
-  reactionSocket.onerror = (e) => console.log(" WS reactions ERROR", e);
-  reactionSocket.onclose = () => console.log(" WS reactions CLOSED");
-
-  function showReactionLocally(user, reaction){
-    if (!feed) return;
-    feed.textContent = `${user} ${reaction}`;
-  }
-
-  document.querySelectorAll(".reaction-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        const reaction = btn.dataset.reaction || btn.textContent;
-        if (reactionSocket.readyState === WebSocket.OPEN) {
-            reactionSocket.send(JSON.stringify({ reaction }));
-        }
-    });
-
-  });
-
-  reactionSocket.onmessage = e => {
-    const data = JSON.parse(e.data);
     const feed = document.getElementById("reaction-feed");
-    if (!feed) return;
-
-    const span = document.createElement("span");
-    span.className = "me-2";
-    span.textContent = `${data.user} ${data.reaction}`;
-
-    feed.appendChild(span);
-};
-
-
+    const reactionSocket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws/reactions/{{ room.room_id }}/");
+    document.querySelectorAll(".reaction-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const reaction = btn.dataset.reaction || btn.textContent;
+            if (reactionSocket.readyState === WebSocket.OPEN) reactionSocket.send(JSON.stringify({ reaction }));
+        });
+    });
+    reactionSocket.onmessage = e => {
+        const data = JSON.parse(e.data);
+        if (!feed) return;
+        const span = document.createElement("span");
+        span.className = "me-2";
+        span.textContent = `${data.user} ${data.reaction}`;
+        feed.appendChild(span);
+    };
 });
 </script>
 {% endblock %}

@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from authentification.models import UserProfile
-from rooms.models import ImageQueue, Room
+from rooms.models import Room
 
 
 class TeacherRolePermissionsTests(TestCase):
@@ -16,14 +16,7 @@ class TeacherRolePermissionsTests(TestCase):
         self.student.userprofile.role = UserProfile.ROLE_STUDENT
         self.student.userprofile.save(update_fields=["role"])
 
-        self.room = Room.objects.create(room_id="abcd1234", creator=self.teacher)
-        self.image = ImageQueue.objects.create(
-            room=self.room,
-            image_url="/media/uploads/test.png",
-            position=1,
-            is_displayed=True,
-            uploaded_by=self.teacher,
-        )
+        self.room = Room.objects.create(room_id="abcd1234", creator=self.teacher, mode="youtube")
 
     def test_student_cannot_create_room(self):
         self.client.force_login(self.student)
@@ -40,22 +33,3 @@ class TeacherRolePermissionsTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Room.objects.filter(creator=self.teacher).count(), 2)
-
-    def test_student_cannot_change_room_mode(self):
-        self.client.force_login(self.student)
-
-        response = self.client.post(reverse("set_mode", args=[self.room.room_id]), data={"mode": "youtube"})
-
-        self.assertEqual(response.status_code, 403)
-        self.assertJSONEqual(response.content, {"error": "teacher_only"})
-
-    def test_student_cannot_select_image(self):
-        self.client.force_login(self.student)
-
-        response = self.client.post(
-            reverse("set_image", args=[self.room.room_id]),
-            data={"image_id": self.image.id},
-        )
-
-        self.assertEqual(response.status_code, 403)
-        self.assertJSONEqual(response.content, {"error": "teacher_only"})

@@ -1,10 +1,10 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
-from django.contrib.auth.models import User
 from django.utils import timezone
 from .models import Room, Message, Participant
 from .views import _serialize_participants
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     @sync_to_async
@@ -70,32 +70,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def room_closed(self, event):
         await self.send(text_data=json.dumps({"type": "room_closed"}))
-
-    async def mode_update(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "mode",
-            "mode": event.get("mode"),
-        }))
-
-
-class PhotoConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
-        self.group = f"photos_{self.room_id}"
-        await self.channel_layer.group_add(self.group, self.channel_name)
-        await self.accept()
-
-    async def disconnect(self, code):
-        await self.channel_layer.group_discard(self.group, self.channel_name)
-
-    async def new_photo(self, event):
-        await self.send(text_data=json.dumps({
-            "type": "photo",
-            "id": event.get("id"),
-            "url": event.get("url"),
-            "position": event.get("position"),
-            "user": event.get("user", "Anonyme"),
-        }))
 
 
 class YouTubeConsumer(AsyncWebsocketConsumer):
@@ -174,3 +148,4 @@ class YouTubeConsumer(AsyncWebsocketConsumer):
 
     async def youtube_event(self, event):
         await self.send(text_data=json.dumps(event["event"]))
+

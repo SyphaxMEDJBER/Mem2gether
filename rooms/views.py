@@ -1,17 +1,14 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.core.files.storage import default_storage
-from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import CourseNote, ImageQueue, Participant, Room
+from .models import CourseNote, Participant, Room
 from authentification.models import UserProfile
 import json
 import secrets
-import os
 import re
 from urllib.parse import parse_qs, urlparse
 
@@ -19,10 +16,6 @@ from urllib.parse import parse_qs, urlparse
 def _is_teacher(user):
     profile, _ = UserProfile.objects.get_or_create(user=user)
     return profile.is_teacher
-
-
-def _forbid_student_json():
-    return JsonResponse({"error": "teacher_only"}, status=403)
 
 
 def _serialize_participants(room):
@@ -54,12 +47,12 @@ def participants_json(request, room_id):
     Participant.objects.get_or_create(room=room, user=request.user)
     return JsonResponse({"participants": _serialize_participants(room)})
 
+
 def _extract_youtube_id(url: str) -> str:
     if not url:
         return ""
     url = url.strip()
 
-    # raw id
     if re.fullmatch(r"[A-Za-z0-9_-]{11}", url):
         return url
 
@@ -94,22 +87,18 @@ def _extract_youtube_id(url: str) -> str:
             if re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
                 return candidate
 
-    # youtu.be/<id>
     m = re.search(r"youtu\.be/([A-Za-z0-9_-]{6,})", url)
     if m:
         return m.group(1)
 
-    # watch?v=<id>
     m = re.search(r"[?&]v=([A-Za-z0-9_-]{6,})", url)
     if m:
         return m.group(1)
 
-    # /embed/<id>
     m = re.search(r"/embed/([A-Za-z0-9_-]{6,})", url)
     if m:
         return m.group(1)
 
-    # final fallback for direct IDs only
     if re.fullmatch(r"[A-Za-z0-9_-]{11}", url):
         return url
 
@@ -127,7 +116,7 @@ def create_room(request):
         )
 
     room_id = secrets.token_hex(4)
-    Room.objects.create(room_id=room_id, creator=request.user)
+    Room.objects.create(room_id=room_id, creator=request.user, mode="youtube")
     return redirect("room_view", room_id=room_id)
 
 
@@ -147,30 +136,33 @@ def join_room(request):
 @login_required
 def room_view(request, room_id):
     room = Room.objects.get(room_id=room_id)
+    if room.mode != "youtube":
+        room.mode = "youtube"
+        room.save(update_fields=["mode"])
+
     Participant.objects.get_or_create(room=room, user=request.user)
     is_teacher = request.user == room.creator and _is_teacher(request.user)
-
     channel_layer = get_channel_layer()
 
-    # ===== SET YOUTUBE (all participants) =====
     if request.method == "POST" and request.POST.get("youtube_url") is not None:
         if not is_teacher:
-            messages = {"room": room, "error": "Seul un professeur peut modifier la video."}
             participants = room.participants.select_related("user")
             room_messages = room.messages.select_related("user")
-            images = room.image_queue.order_by("position")
-            return render(request, "rooms/room.html", {
-                "room": room,
-                "participants": participants,
-                "messages": room_messages,
-                "images": images,
-                "is_teacher": is_teacher,
-                "user_role": "professeur" if is_teacher else "eleve",
-                **messages,
-            }, status=403)
+            return render(
+                request,
+                "rooms/room.html",
+                {
+                    "room": room,
+                    "participants": participants,
+                    "messages": room_messages,
+                    "is_teacher": is_teacher,
+                    "user_role": "professeur" if is_teacher else "eleve",
+                    "error": "Seul un professeur peut modifier la video.",
+                },
+                status=403,
+            )
 
         youtube_url = request.POST.get("youtube_url", "").strip()
-
         changed = False
 
         if youtube_url:
@@ -181,154 +173,40 @@ def room_view(request, room_id):
                 room.youtube_time = 0.0
                 room.youtube_updated_at = timezone.now()
                 changed = True
-                # reset sync baseline
                 async_to_sync(channel_layer.group_send)(
                     f"youtube_{room_id}",
-                    {"type": "youtube_event", "event": {"type": "set_video", "videoId": vid, "t": 0}}
+                    {"type": "youtube_event", "event": {"type": "set_video", "videoId": vid, "t": 0}},
                 )
 
         if changed:
             room.save()
 
-    # ===== UPLOAD IMAGE =====
-    if request.method == "POST" and request.FILES.get("image"):
-        if not is_teacher:
-            participants = room.participants.select_related("user")
-            room_messages = room.messages.select_related("user")
-            images = room.image_queue.order_by("position")
-            return render(request, "rooms/room.html", {
-                "room": room,
-                "participants": participants,
-                "messages": room_messages,
-                "images": images,
-                "is_teacher": is_teacher,
-                "user_role": "professeur" if is_teacher else "eleve",
-                "error": "Seul un professeur peut ajouter une image ou utiliser le tableau blanc.",
-            }, status=403)
-
-        image = request.FILES["image"]
-
-        ext = os.path.splitext(image.name)[1]
-        filename = f"{secrets.token_hex(8)}{ext}"
-        path = f"uploads/{room_id}/{filename}"
-        default_storage.save(path, ContentFile(image.read()))
-
-        ImageQueue.objects.filter(room=room).update(is_displayed=False)
-
-        last = ImageQueue.objects.filter(room=room).order_by("-position").first()
-        pos = last.position + 1 if last else 1
-
-        img = ImageQueue.objects.create(
-            room=room,
-            image_url=f"/media/{path}",
-            position=pos,
-            uploaded_by=request.user,
-            is_displayed=True
-        )
-
-        async_to_sync(channel_layer.group_send)(
-            f"photos_{room_id}",
-            {
-                "type": "new_photo",
-                "id": img.id,
-                "url": img.image_url,
-                "position": img.position,
-                "user": request.user.username
-            }
-        )
-
-        return redirect("room_view", room_id=room_id)
-
     participants = room.participants.select_related("user", "user__userprofile")
     messages = room.messages.select_related("user")
-    images = room.image_queue.order_by("position")
 
     _broadcast_participants(room)
 
     user_profile, _ = UserProfile.objects.get_or_create(user=request.user)
     user_role = "professeur" if user_profile.is_teacher else "eleve"
 
-    return render(request, "rooms/room.html", {
-        "room": room,
-        "participants": participants,
-        "messages": messages,
-        "images": images,
-        "is_teacher": is_teacher,
-        "user_role": "professeur" if is_teacher else "eleve",
-    })
-
-
-@login_required
-def set_mode(request, room_id):
-    if request.method != "POST":
-        return JsonResponse({"error": "method_not_allowed"}, status=405)
-
-    room = Room.objects.get(room_id=room_id)
-    Participant.objects.get_or_create(room=room, user=request.user)
-    if request.user != room.creator or not _is_teacher(request.user):
-        return _forbid_student_json()
-
-    mode = request.POST.get("mode", "").strip()
-    if mode not in ("photos", "youtube"):
-        return JsonResponse({"error": "invalid_mode"}, status=400)
-
-    if room.mode != mode:
-        room.mode = mode
-        room.save()
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"room_{room_id}",
-            {"type": "mode_update", "mode": mode}
-        )
-
-    return JsonResponse({"mode": room.mode})
-
-
-@login_required
-def current_image(request, room_id):
-    img = ImageQueue.objects.filter(room__room_id=room_id, is_displayed=True).first()
-    if img:
-        return JsonResponse({"url": img.image_url, "user": img.uploaded_by.username if img.uploaded_by else "Anonyme"})
-    return JsonResponse({"url": None, "user": None})
-
-
-@login_required
-def set_image(request, room_id):
-    if request.method != "POST":
-        return JsonResponse({"error": "method_not_allowed"}, status=405)
-
-    image_id = request.POST.get("image_id")
-    if not image_id:
-        return JsonResponse({"error": "missing_image_id"}, status=400)
-
-    try:
-        img = ImageQueue.objects.select_related("room", "uploaded_by").get(id=image_id, room__room_id=room_id)
-    except ImageQueue.DoesNotExist:
-        return JsonResponse({"error": "image_not_found"}, status=404)
-
-    if request.user != img.room.creator or not _is_teacher(request.user):
-        return _forbid_student_json()
-
-    ImageQueue.objects.filter(room=img.room).update(is_displayed=False)
-    img.is_displayed = True
-    img.save()
-
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f"photos_{room_id}",
-        {"type": "new_photo", "url": img.image_url, "user": img.uploaded_by.username if img.uploaded_by else "Anonyme"}
+    return render(
+        request,
+        "rooms/room.html",
+        {
+            "room": room,
+            "participants": participants,
+            "messages": messages,
+            "is_teacher": is_teacher,
+            "user_role": user_role,
+        },
     )
-
-    return JsonResponse({"ok": True})
 
 
 @login_required
 def leave_room(request, room_id):
     room = Room.objects.get(room_id=room_id)
-
     Participant.objects.filter(room=room, user=request.user).delete()
     _broadcast_participants(room)
-
     return redirect("home")
 
 
