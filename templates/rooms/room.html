@@ -632,7 +632,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     const t = player.getCurrentTime ? player.getCurrentTime() : 0;
                     const videoId = getActiveVideoId();
                     if (ev.data === YT.PlayerState.PLAYING) pushSyncState({ type: "play", t, videoId }).catch(() => {});
-                    if (ev.data === YT.PlayerState.PAUSED) pushSyncState({ type: "pause", t, videoId }).catch(() => {});
+                    if (ev.data === YT.PlayerState.PAUSED) {
+                        if (document.hidden) return;
+                        pushSyncState({ type: "pause", t, videoId }).catch(() => {});
+                    }
                     updateTeacherHeartbeat();
                 }
             }

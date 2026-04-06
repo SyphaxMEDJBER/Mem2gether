@@ -5,13 +5,14 @@
 <div class="hero">
     <div class="hero-overlay"></div>
     <div class="hero-actions-bar d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-4">
-        <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
         {% if user.is_authenticated and user.userprofile.role == "teacher" %}
-        <a href="/rooms/create/" class="btn btn-outline-light btn-lg px-4">Creer une room</a>
-        {% elif not user.is_authenticated %}
+        <a href="/rooms/create/" class="btn btn-primary btn-lg px-4">Creer une room</a>
+        {% elif user.is_authenticated %}
+        <a href="/rooms/join/" class="btn btn-primary btn-lg px-4">Rejoindre une room</a>
+        {% else %}
+        <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
         <a href="/signup" class="btn btn-outline-light btn-lg px-4">Creer un compte</a>
         {% endif %}
-        <a href="/rooms/join/" class="btn btn-outline-light btn-lg px-4">Rejoindre une room</a>
     </div>
 </div>
 
