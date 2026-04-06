@@ -49,6 +49,23 @@
         cursor: crosshair;
     }
     .whiteboard-canvas.readonly { cursor: default; opacity: 0.92; }
+    .sync-lock { font-size: 0.9rem; color: rgba(255, 255, 255, 0.72); }
+    .player-shell { position: relative; width: 100%; height: 100%; }
+    .player-guard { position: absolute; inset: 0; z-index: 5; background: transparent; }
+    .sync-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.86);
+    }
+    .sync-pill.is-warning {
+        color: #ffd166;
+        background: rgba(255, 209, 102, 0.12);
+    }
 </style>
 
 <div class="room-header">
@@ -56,7 +73,7 @@
         <div class="text-start">
             <strong>Room {{ room.room_id }}</strong>
             <p class="mb-0 text-muted">
-                Créée par <span class="text-warning">{{ room.creator.username }}</span> — Mode : <span class="text-warning">YouTube</span>
+                Creee par <span class="text-warning">{{ room.creator.username }}</span> - Mode : <span class="text-warning">YouTube</span>
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -74,7 +91,7 @@
             <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
                 <div class="d-flex flex-column">
                     <span class="fw-semibold">{{ p.user.username }}</span>
-                    <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Étudiant{% endif %}</span>
+                    <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Etudiant{% endif %}</span>
                 </div>
                 <div class="d-flex gap-1">
                     {% if p.user.userprofile.role == 'teacher' %}<span class="badge bg-warning text-dark">Prof</span>{% endif %}
@@ -90,10 +107,10 @@
             <h5 class="mb-2">Infos room</h5>
             <ul class="list-unstyled text-muted small">
                 <li>ID : {{ room.room_id }}</li>
-                <li>Créateur : {{ room.creator.username }}</li>
-                <li>Votre rôle : {{ user_role|title }}</li>
+                <li>Createur : {{ room.creator.username }}</li>
+                <li>Votre role : {{ user_role|title }}</li>
                 <li>Mode : YouTube</li>
-                <li>Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
+                <li>Creee le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
             </ul>
             <a href="/rooms/{{ room.room_id }}/leave/" class="btn btn-outline-light w-100 mt-4">Quitter la room</a>
         </div>
@@ -102,15 +119,20 @@
     <section class="room-main">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
-                <h5 class="mb-1">Session vidéo collaborative</h5>
-                <span class="text-muted small">Synchronisation en temps réel</span>
+                <h5 class="mb-1">Session video collaborative</h5>
+                <span class="text-muted small">Synchronisation en temps reel</span>
             </div>
+            <span id="sync-status" class="sync-pill">Synchronise</span>
+            {% if not is_teacher %}<span class="sync-lock">Controle video reserve au professeur</span>{% endif %}
         </div>
 
         <div class="row g-3 align-items-stretch mb-3">
             <div class="col-lg-8">
                 <div class="sync-image-wrapper h-100" style="padding:0;">
-                    <div id="yt-player" style="width:100%; height:100%;"></div>
+                    <div class="player-shell">
+                        <div id="yt-player" style="width:100%; height:100%;"></div>
+                        {% if not is_teacher %}<div id="player-guard" class="player-guard" aria-hidden="true"></div>{% endif %}
+                    </div>
                 </div>
             </div>
             <div class="col-lg-4">
@@ -124,17 +146,25 @@
             </div>
         </div>
 
+        {% if is_teacher %}
         <form method="POST" class="mb-4">
             {% csrf_token %}
-            <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
-            <button type="submit" class="btn btn-primary w-100">Définir la vidéo</button>
+            <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID video" />
+            <button type="submit" class="btn btn-primary w-100">Definir la video</button>
         </form>
+        {% endif %}
 
+        {% if is_teacher %}
         <div class="d-flex gap-2 mb-3 flex-wrap">
             <button id="yt-play" class="btn btn-primary" type="button">Play</button>
             <button id="yt-pause" class="btn btn-outline-light" type="button">Pause</button>
             <button id="yt-sync" class="btn btn-outline-light" type="button">Sync</button>
         </div>
+        {% else %}
+        <div class="mb-3">
+            <span class="text-muted small">Lecture controlee par le professeur.</span>
+        </div>
+        {% endif %}
 
         <div class="d-flex gap-2 mb-3">
             <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
@@ -144,7 +174,7 @@
         <div class="notes-panel mb-3">
             <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
                 <h6 class="mb-0">Notes du cours</h6>
-                <span class="small text-muted">Triées par timecode, cliquez pour aller au passage</span>
+                <span class="small text-muted">Triees par timecode, cliquez pour aller au passage</span>
             </div>
             <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
             <ul id="yt-notes-list" class="notes-list"></ul>
@@ -172,16 +202,24 @@
 document.addEventListener("DOMContentLoaded", () => {
     const currentUser = "{{ request.user.username }}";
     const roomId = "{{ room.room_id }}";
+    const syncStateUrl = `/rooms/${roomId}/sync-state/`;
     const pageOrigin = window.location.origin;
     const pageHref = window.location.href;
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
     const chatSocket = new WebSocket(protocol + location.host + "/ws/rooms/" + roomId + "/");
-    let ytSocket = null;
+    const isTeacher = {{ is_teacher|yesno:"true,false" }};
     let player = null;
     let ytReady = false;
     let suppress = false;
     let pendingYTEvent = null;
-    let pendingSyncRequest = false;
+    let teacherHeartbeatTimer = null;
+    let syncStatusTimer = null;
+    let studentAutoplayPrimed = false;
+    let studentSyncTimer = null;
+
+    function getActiveVideoId() {
+        return player && player.getVideoData ? (player.getVideoData().video_id || "") : "";
+    }
 
     function appendChat(targetId, user, msg) {
         const log = document.getElementById(targetId);
@@ -193,12 +231,34 @@ document.addEventListener("DOMContentLoaded", () => {
         log.scrollTop = log.scrollHeight;
     }
 
+    function getCSRFToken() {
+        const cookie = document.cookie
+            .split(";")
+            .map(part => part.trim())
+            .find(part => part.startsWith("csrftoken="));
+        return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+    }
+
+    function setSyncStatus(label, warning = false) {
+        const el = document.getElementById("sync-status");
+        if (!el) return;
+        el.textContent = label;
+        el.classList.toggle("is-warning", warning);
+        if (syncStatusTimer) clearTimeout(syncStatusTimer);
+        if (warning) {
+            syncStatusTimer = setTimeout(() => {
+                el.textContent = "Synchronise";
+                el.classList.remove("is-warning");
+            }, 1200);
+        }
+    }
+
     function renderParticipants(participants) {
         const list = document.getElementById("participants-list");
         if (!list) return;
         let html = "<h5 class='mb-3'>Participants</h5>";
         participants.forEach(participant => {
-            const role = participant.role === "teacher" ? "Professeur" : "Étudiant";
+            const role = participant.role === "teacher" ? "Professeur" : "Etudiant";
             const isCurrentUser = participant.username === currentUser;
             html += `<div class="participant-item d-flex justify-content-between align-items-center">
                 <div class="d-flex flex-column">
@@ -250,11 +310,31 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshParticipants();
     setInterval(refreshParticipants, 2000);
 
-    function sendYT(payload) { try { ytSocket.send(JSON.stringify(payload)); } catch {} }
-    function requestYTSync() {
-        if (!ytSocket) return;
-        if (ytSocket.readyState === WebSocket.OPEN) sendYT({ type: "sync_request" });
-        else pendingSyncRequest = true;
+    async function pushSyncState(payload) {
+        if (!isTeacher) return null;
+        const response = await fetch(syncStateUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error(`sync_post_${response.status}`);
+        const data = await response.json();
+        return data.sync || null;
+    }
+    async function requestYTSync() {
+        if (isTeacher) return;
+        try {
+            const response = await fetch(syncStateUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            if (!response.ok) return;
+            const data = await response.json();
+            applyYT(data);
+        } catch (err) {
+            console.log("sync fetch failed", err);
+        }
     }
     function ensureYouTubeAPI() {
         if (window.YT && window.YT.Player) return;
@@ -262,53 +342,151 @@ document.addEventListener("DOMContentLoaded", () => {
         s.src = "https://www.youtube.com/iframe_api";
         document.head.appendChild(s);
     }
-    function applyYT(ev) {
-        if (!player || !ytReady) { pendingYTEvent = ev; return; }
-        suppress = true;
-        try {
-            if (ev.type === "init") {
-                if (ev.videoId) player.loadVideoById(ev.videoId, ev.t || 0);
-                if (ev.state === "playing") setTimeout(() => player.playVideo(), 200);
-                else if (ev.state === "paused") setTimeout(() => player.pauseVideo(), 200);
-            }
-            if (ev.type === "set_video" && ev.videoId) player.loadVideoById(ev.videoId, ev.t || 0);
-            if (ev.type === "play") { if (typeof ev.t === "number") player.seekTo(ev.t, true); player.playVideo(); }
-            if (ev.type === "pause") { if (typeof ev.t === "number") player.seekTo(ev.t, true); player.pauseVideo(); }
-            if (ev.type === "seek" && typeof ev.t === "number") player.seekTo(ev.t, true);
-            if (ev.type === "sync") {
-                if (typeof ev.t === "number") player.seekTo(ev.t, true);
-                if (ev.state === "playing") player.playVideo();
-                if (ev.state === "paused") player.pauseVideo();
-            }
-        } finally {
-            setTimeout(() => { suppress = false; }, 200);
+    function resolveEventTime(ev) {
+        let target = typeof ev.t === "number" ? ev.t : Number(ev.t || 0);
+        if ((ev.state === "playing" || ev.type === "play" || ev.type === "heartbeat") && ev.server_ts_ms) {
+            const drift = Math.max(0, (Date.now() - Number(ev.server_ts_ms)) / 1000);
+            target += drift;
+        }
+        return target;
+    }
+    function updateTeacherHeartbeat() {
+        if (teacherHeartbeatTimer) {
+            clearInterval(teacherHeartbeatTimer);
+            teacherHeartbeatTimer = null;
+        }
+        if (!isTeacher || !player || !ytReady) return;
+        if (player.getPlayerState && player.getPlayerState() === 1) {
+            teacherHeartbeatTimer = setInterval(() => {
+                const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+                pushSyncState({ type: "heartbeat", t, videoId: getActiveVideoId() }).catch(() => {});
+            }, 1000);
         }
     }
-
-    ytSocket = new WebSocket(protocol + location.host + "/ws/youtube/" + roomId + "/");
-    ytSocket.onopen = () => {
-        if (pendingSyncRequest) {
-            sendYT({ type: "sync_request" });
-            pendingSyncRequest = false;
+    function forceStudentPlayback(videoId, targetTime) {
+        if (!player || !ytReady || isTeacher) return;
+        const activeVideoId = videoId || player.getVideoData?.().video_id || "";
+        if (!activeVideoId) return;
+        if (player.mute) player.mute();
+        studentAutoplayPrimed = true;
+        player.loadVideoById(activeVideoId, Math.max(0, Number(targetTime) || 0));
+    }
+    function applyYT(ev) {
+        if (!player || !ytReady) { pendingYTEvent = ev; return; }
+        const targetTime = resolveEventTime(ev);
+        suppress = true;
+        try {
+            let corrected = false;
+            if (ev.type === "init") {
+                const currentVideoId = player.getVideoData?.().video_id || "";
+                if (ev.videoId && currentVideoId !== ev.videoId) {
+                    if (!isTeacher && ev.state === "playing") forceStudentPlayback(ev.videoId, targetTime);
+                    else player.loadVideoById(ev.videoId, targetTime || 0);
+                    corrected = true;
+                } else if (typeof targetTime === "number") {
+                    const current = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (Math.abs(current - targetTime) > 0.45) {
+                        player.seekTo(targetTime, true);
+                        corrected = true;
+                    }
+                }
+                if (ev.state === "playing") {
+                    if (player.getPlayerState && player.getPlayerState() !== 1) {
+                        setTimeout(() => player.playVideo(), 200);
+                    }
+                }
+                else if (ev.state === "paused") setTimeout(() => player.pauseVideo(), 200);
+            }
+            if (ev.type === "set_video" && ev.videoId) {
+                player.loadVideoById(ev.videoId, targetTime || 0);
+                corrected = true;
+            }
+            if (ev.type === "play") {
+                if (ev.videoId && player.getVideoData?.().video_id !== ev.videoId) {
+                    if (!isTeacher) forceStudentPlayback(ev.videoId, targetTime);
+                    else player.loadVideoById(ev.videoId, targetTime || 0);
+                    corrected = true;
+                }
+                if (typeof targetTime === "number") {
+                    const current = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (Math.abs(current - targetTime) > 0.35) {
+                        player.seekTo(targetTime, true);
+                        corrected = true;
+                    }
+                }
+                if (!isTeacher) forceStudentPlayback(ev.videoId, targetTime);
+                else player.playVideo();
+            }
+            if (ev.type === "pause") {
+                if (ev.videoId && player.getVideoData?.().video_id !== ev.videoId) {
+                    player.loadVideoById(ev.videoId, targetTime || 0);
+                    corrected = true;
+                }
+                if (typeof targetTime === "number") {
+                    const current = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (Math.abs(current - targetTime) > 0.25) {
+                        player.seekTo(targetTime, true);
+                        corrected = true;
+                    }
+                }
+                player.pauseVideo();
+            }
+            if ((ev.type === "seek" || ev.type === "heartbeat") && typeof targetTime === "number") {
+                const current = player.getCurrentTime ? player.getCurrentTime() : 0;
+                if (Math.abs(current - targetTime) > 0.2) {
+                    player.seekTo(targetTime, true);
+                    corrected = true;
+                }
+            }
+            if (ev.type === "sync") {
+                if (ev.videoId && player.getVideoData?.().video_id !== ev.videoId) {
+                    if (!isTeacher && ev.state === "playing") forceStudentPlayback(ev.videoId, targetTime);
+                    else player.loadVideoById(ev.videoId, targetTime || 0);
+                    corrected = true;
+                }
+                if (typeof targetTime === "number") {
+                    const current = player.getCurrentTime ? player.getCurrentTime() : 0;
+                    if (Math.abs(current - targetTime) > 0.3) {
+                        player.seekTo(targetTime, true);
+                        corrected = true;
+                    }
+                }
+                if (ev.state === "playing") {
+                    if (!isTeacher) forceStudentPlayback(ev.videoId, targetTime);
+                    else player.playVideo();
+                }
+                if (ev.state === "paused") player.pauseVideo();
+            }
+            setSyncStatus(corrected ? "Recalage..." : "Synchronise", corrected);
+        } finally {
+            setTimeout(() => { suppress = false; }, 200);
+            setTimeout(updateTeacherHeartbeat, 250);
         }
-    };
-    ytSocket.onmessage = e => applyYT(JSON.parse(e.data));
+    }
 
     window.onYouTubeIframeAPIReady = function() {
         player = new YT.Player("yt-player", {
             videoId: "{{ room.youtube_video_id|default:'' }}",
             host: "https://www.youtube.com",
-            playerVars: { playsinline: 1, controls: 1, origin: pageOrigin, widget_referrer: pageHref },
+            playerVars: { playsinline: 1, controls: isTeacher ? 1 : 0, disablekb: isTeacher ? 0 : 1, origin: pageOrigin, widget_referrer: pageHref },
             events: {
                 onReady: () => {
                     ytReady = true;
+                    if (!isTeacher && player.mute) {
+                        player.mute();
+                        studentAutoplayPrimed = true;
+                    }
                     if (pendingYTEvent) { applyYT(pendingYTEvent); pendingYTEvent = null; }
+                    if (!isTeacher) requestYTSync();
+                    updateTeacherHeartbeat();
                 },
                 onStateChange: (ev) => {
-                    if (suppress || !ytReady) return;
+                    if (suppress || !ytReady || !isTeacher) return;
                     const t = player.getCurrentTime ? player.getCurrentTime() : 0;
-                    if (ev.data === YT.PlayerState.PLAYING) sendYT({ type: "play", t });
-                    if (ev.data === YT.PlayerState.PAUSED) sendYT({ type: "pause", t });
+                    const videoId = getActiveVideoId();
+                    if (ev.data === YT.PlayerState.PLAYING) pushSyncState({ type: "play", t, videoId }).catch(() => {});
+                    if (ev.data === YT.PlayerState.PAUSED) pushSyncState({ type: "pause", t, videoId }).catch(() => {});
+                    updateTeacherHeartbeat();
                 }
             }
         });
@@ -323,7 +501,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const notesStatus = document.getElementById("yt-notes-status");
     const whiteboardCanvas = document.getElementById("whiteboard-canvas");
     const whiteboardClear = document.getElementById("whiteboard-clear");
-    const isTeacher = {{ is_teacher|yesno:"true,false" }};
 
     function formatTimecode(totalSeconds) {
         const sec = Math.max(0, Number(totalSeconds) || 0);
@@ -332,7 +509,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function seekToNoteTime(timecode) {
         const t = Math.max(0, Number(timecode) || 0);
         if (!player || !ytReady) return;
-        sendYT({ type: "seek", t });
+        if (!isTeacher) return;
+        pushSyncState({ type: "seek", t, videoId: getActiveVideoId() }).catch(() => {});
         applyYT({ type: "seek", t });
     }
     function setNotesStatus(message, isError = false) {
@@ -423,23 +601,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (btnPlay) btnPlay.onclick = () => {
-        if (!player || !ytReady) return;
-        const t = player.getCurrentTime();
-        sendYT({ type: "play", t });
-        applyYT({ type: "play", t });
+        if (!player || !ytReady || !isTeacher) return;
+        player.playVideo();
+        setTimeout(() => {
+            const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+            pushSyncState({ type: "play", t, videoId: getActiveVideoId() }).catch(() => {});
+            updateTeacherHeartbeat();
+        }, 150);
     };
     if (btnPause) btnPause.onclick = () => {
-        if (!player || !ytReady) return;
-        const t = player.getCurrentTime();
-        sendYT({ type: "pause", t });
-        applyYT({ type: "pause", t });
+        if (!player || !ytReady || !isTeacher) return;
+        player.pauseVideo();
+        setTimeout(() => {
+            const t = player.getCurrentTime ? player.getCurrentTime() : 0;
+            pushSyncState({ type: "pause", t, videoId: getActiveVideoId() }).catch(() => {});
+            updateTeacherHeartbeat();
+        }, 150);
     };
     if (btnSync) btnSync.onclick = () => {
-        if (!player || !ytReady) return;
+        if (!player || !ytReady || !isTeacher) return;
         const t = player.getCurrentTime();
         const state = player.getPlayerState() === 1 ? "playing" : "paused";
-        sendYT({ type: "sync", t, state });
-        applyYT({ type: "sync", t, state });
+        pushSyncState({ type: "sync", t, state, videoId: getActiveVideoId() }).catch(() => {});
+        updateTeacherHeartbeat();
     };
     if (btnAddNote) btnAddNote.onclick = async () => {
         if (!inputNote) return;
@@ -497,13 +681,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadCourseNotes();
     ensureYouTubeAPI();
-    requestYTSync();
+    if (!isTeacher) {
+        requestYTSync();
+        studentSyncTimer = setInterval(requestYTSync, 2000);
+    }
     initWhiteboard();
 });
 </script>
 
 <div class="mt-3">
-    <h5>Réactions</h5>
+    <h5>Reactions</h5>
     <div class="d-flex gap-2">
         <button class="reaction-btn" data-reaction="🔥">🔥</button>
         <button class="reaction-btn" data-reaction="😂">😂</button>

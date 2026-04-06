@@ -10,6 +10,7 @@ from authentification.models import UserProfile
 import json
 import secrets
 import re
+import time
 from urllib.parse import parse_qs, urlparse
 
 
@@ -41,11 +42,85 @@ def _broadcast_participants(room):
     )
 
 
+def _build_youtube_sync_payload(room):
+    current_time = room.youtube_time or 0.0
+    if room.youtube_state == "playing" and room.youtube_updated_at:
+        current_time = max(
+            0.0,
+            current_time + (timezone.now() - room.youtube_updated_at).total_seconds(),
+        )
+    return {
+        "type": "init",
+        "videoId": room.youtube_video_id or "",
+        "t": current_time,
+        "state": room.youtube_state or "paused",
+        "server_ts_ms": int(time.time() * 1000),
+    }
+
+
 @login_required
 def participants_json(request, room_id):
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
     return JsonResponse({"participants": _serialize_participants(room)})
+
+
+@login_required
+def youtube_sync_state(request, room_id):
+    room = Room.objects.get(room_id=room_id)
+    Participant.objects.get_or_create(room=room, user=request.user)
+
+    if request.method == "GET":
+        return JsonResponse(_build_youtube_sync_payload(room))
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "method_not_allowed"}, status=405)
+
+    is_room_teacher = request.user == room.creator and _is_teacher(request.user)
+    if not is_room_teacher:
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    event_type = payload.get("type")
+    now = timezone.now()
+
+    if event_type == "set_video":
+        video_id = (payload.get("videoId") or "").strip()
+        if video_id:
+            room.youtube_video_id = video_id
+        room.youtube_state = "paused"
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    elif event_type == "play":
+        room.youtube_state = "playing"
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    elif event_type == "pause":
+        room.youtube_state = "paused"
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    elif event_type == "seek":
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    elif event_type == "sync":
+        state = payload.get("state")
+        if state in ("playing", "paused"):
+            room.youtube_state = state
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    elif event_type == "heartbeat":
+        room.youtube_state = "playing"
+        room.youtube_time = float(payload.get("t", 0) or 0)
+        room.youtube_updated_at = now
+    else:
+        return JsonResponse({"ok": False, "error": "invalid_event"}, status=400)
+
+    room.save(update_fields=["youtube_video_id", "youtube_state", "youtube_time", "youtube_updated_at"])
+    return JsonResponse({"ok": True, "sync": _build_youtube_sync_payload(room)})
 
 
 def _extract_youtube_id(url: str) -> str:

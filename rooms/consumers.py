@@ -2,6 +2,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
 from django.utils import timezone
+import time
 from .models import Room, Message, Participant
 from .views import _serialize_participants
 
@@ -73,6 +74,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
 
 class YouTubeConsumer(AsyncWebsocketConsumer):
+    @sync_to_async
+    def _can_control(self):
+        user = self.scope["user"]
+        if not user.is_authenticated:
+            return False
+        room = Room.objects.select_related("creator").get(room_id=self.room_id)
+        return room.creator_id == user.id
+
     async def _build_sync_event(self, room):
         t = room.youtube_time or 0.0
         if room.youtube_state == "playing" and room.youtube_updated_at:
@@ -83,6 +92,7 @@ class YouTubeConsumer(AsyncWebsocketConsumer):
             "videoId": room.youtube_video_id or "",
             "t": t,
             "state": room.youtube_state or "paused",
+            "server_ts_ms": int(time.time() * 1000),
         }
 
     async def connect(self):
@@ -105,6 +115,9 @@ class YouTubeConsumer(AsyncWebsocketConsumer):
             room = await sync_to_async(Room.objects.get)(room_id=self.room_id)
             event = await self._build_sync_event(room)
             await self.send(text_data=json.dumps(event))
+            return
+
+        if not await self._can_control():
             return
 
         room = await sync_to_async(Room.objects.get)(room_id=self.room_id)
@@ -140,12 +153,23 @@ class YouTubeConsumer(AsyncWebsocketConsumer):
                 room.youtube_time = float(data.get("t") or 0)
             room.youtube_updated_at = now
 
+        if event_type == "heartbeat":
+            room.youtube_state = "playing"
+            room.youtube_time = float(data.get("t", 0) or 0)
+            room.youtube_updated_at = now
+
         await sync_to_async(room.save)()
+        outbound_event = {
+            "type": event_type,
+            "videoId": room.youtube_video_id or data.get("videoId") or "",
+            "t": room.youtube_time,
+            "state": room.youtube_state,
+            "server_ts_ms": int(time.time() * 1000),
+        }
         await self.channel_layer.group_send(
             self.group,
-            {"type": "youtube_event", "event": data}
+            {"type": "youtube_event", "event": outbound_event}
         )
 
     async def youtube_event(self, event):
         await self.send(text_data=json.dumps(event["event"]))
-
