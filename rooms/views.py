@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from .models import CourseNote, Participant, Room
+from .models import CourseNote, Message, Participant, Room
 from authentification.models import UserProfile
 import json
 import secrets
@@ -65,11 +65,52 @@ def _build_whiteboard_payload(room):
     }
 
 
+def _serialize_message(message):
+    return {
+        "id": message.id,
+        "user": message.user.username if message.user else "Anonyme",
+        "content": message.content,
+        "timestamp": message.timestamp.isoformat(),
+    }
+
+
 @login_required
 def participants_json(request, room_id):
     room = Room.objects.get(room_id=room_id)
     Participant.objects.get_or_create(room=room, user=request.user)
     return JsonResponse({"participants": _serialize_participants(room)})
+
+
+@login_required
+def room_messages_state(request, room_id):
+    room = Room.objects.get(room_id=room_id)
+    Participant.objects.get_or_create(room=room, user=request.user)
+
+    if request.method == "GET":
+        after_id = request.GET.get("after")
+        messages = room.messages.select_related("user").order_by("id")
+        if after_id:
+            try:
+                messages = messages.filter(id__gt=int(after_id))
+            except ValueError:
+                return JsonResponse({"ok": False, "error": "invalid_after"}, status=400)
+        payload = [_serialize_message(message) for message in messages[:100]]
+        return JsonResponse({"ok": True, "messages": payload})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "method_not_allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    content = str(payload.get("message", "")).strip()
+    if not content:
+        return JsonResponse({"ok": False, "error": "missing_message"}, status=400)
+
+    message = Message.objects.create(room=room, user=request.user, content=content)
+    return JsonResponse({"ok": True, "message": _serialize_message(message)})
 
 
 @login_required

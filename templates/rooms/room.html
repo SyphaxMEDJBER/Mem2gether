@@ -185,7 +185,7 @@
                 <h5 class="mb-2">Chat</h5>
                 <div id="chat-log-yt" class="p-2 rounded-3 mb-2" style="height:200px; overflow-y:auto; background:#222;">
                     {% for m in messages %}
-                    <p class="mb-1 text-light"><strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong> {{ m.content }}</p>
+                    <p class="mb-1 text-light" data-message-id="{{ m.id }}"><strong>{% if m.user %}{{ m.user.username }}{% else %}Anonyme{% endif %} :</strong> {{ m.content }}</p>
                     {% endfor %}
                 </div>
                 <div class="d-flex gap-2">
@@ -204,6 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const roomId = "{{ room.room_id }}";
     const syncStateUrl = `/rooms/${roomId}/sync-state/`;
     const whiteboardStateUrl = `/rooms/${roomId}/whiteboard-state/`;
+    const messagesStateUrl = `/rooms/${roomId}/messages-state/`;
     const pageOrigin = window.location.origin;
     const pageHref = window.location.href;
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
@@ -220,6 +221,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let whiteboardSyncTimer = null;
     let whiteboardLastUpdatedAt = 0;
     let whiteboardPushTimer = null;
+    let chatLastMessageId = 0;
+    let chatPollTimer = null;
 
     function getActiveVideoId() {
         return player && player.getVideoData ? (player.getVideoData().video_id || "") : "";
@@ -233,6 +236,12 @@ document.addEventListener("DOMContentLoaded", () => {
         p.innerHTML = "<strong>" + user + " :</strong> " + msg;
         log.appendChild(p);
         log.scrollTop = log.scrollHeight;
+        return p;
+    }
+    function appendChatMessage(message) {
+        const node = appendChat("chat-log-yt", message.user, message.content);
+        if (node) node.dataset.messageId = String(message.id || "");
+        chatLastMessageId = Math.max(chatLastMessageId, Number(message.id) || 0);
     }
 
     function getCSRFToken() {
@@ -289,14 +298,45 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    async function sendChatMessage(message) {
+        const response = await fetch(messagesStateUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({ message }),
+        });
+        if (!response.ok) throw new Error(`chat_post_${response.status}`);
+        const data = await response.json();
+        return data.message || null;
+    }
+    async function refreshChatMessages() {
+        try {
+            const response = await fetch(`${messagesStateUrl}?after=${chatLastMessageId}`, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            (data.messages || []).forEach(appendChatMessage);
+        } catch (err) {
+            console.log("chat refresh failed", err);
+        }
+    }
     function bindChat(inputId, btnId) {
         const input = document.getElementById(inputId);
         const btn = document.getElementById(btnId);
         if (!input || !btn) return;
-        const send = () => {
+        const send = async () => {
             const val = input.value.trim();
-            if (!val || chatSocket.readyState !== WebSocket.OPEN) return;
-            chatSocket.send(JSON.stringify({ message: val }));
+            if (!val) return;
+            try {
+                const message = await sendChatMessage(val);
+                if (message) appendChatMessage(message);
+            } catch (err) {
+                console.log("chat send failed", err);
+            }
             input.value = "";
         };
         btn.onclick = send;
@@ -307,11 +347,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = JSON.parse(e.data);
         if (data.type === "participants") renderParticipants(data.participants || []);
         if (data.type === "room_closed") window.location.href = "/";
-        if (data.type === "chat") appendChat("chat-log-yt", data.user, data.message);
     };
 
     bindChat("chat-message-input-yt", "chat-message-submit-yt");
     refreshParticipants();
+    document.querySelectorAll("#chat-log-yt [data-message-id]").forEach(node => {
+        chatLastMessageId = Math.max(chatLastMessageId, Number(node.dataset.messageId) || 0);
+    });
+    refreshChatMessages();
+    chatPollTimer = setInterval(refreshChatMessages, 1500);
     setInterval(refreshParticipants, 2000);
 
     async function pushSyncState(payload) {
