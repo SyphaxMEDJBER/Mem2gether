@@ -27,6 +27,7 @@
         padding: 0.85rem 1rem;
         cursor: pointer;
     }
+    .note-card.is-readonly { cursor: default; }
     .note-card:hover, .note-card:focus {
         border-color: rgba(255, 193, 7, 0.6);
         background: rgba(255, 193, 7, 0.08);
@@ -40,6 +41,21 @@
         margin-bottom: 0.35rem;
     }
     .note-time { font-weight: 700; color: #ffc107; }
+    .note-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .note-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        background: rgba(255, 193, 7, 0.14);
+        color: #ffd166;
+    }
     .whiteboard-canvas {
         width: 100%;
         height: 320px;
@@ -166,17 +182,28 @@
         </div>
         {% endif %}
 
-        <div class="d-flex gap-2 mb-3">
-            <input id="yt-note-content" type="text" class="form-control" placeholder="Ajouter une note..." />
-            <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter note au moment actuel</button>
+        {% if not is_teacher %}
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+            <input id="yt-note-content" type="text" class="form-control" placeholder="Ex : definition importante, formule, question..." />
+            <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter la note</button>
         </div>
+        {% else %}
+        <div class="mb-3">
+            <span class="text-muted small">Les notes sont privees et creees uniquement par chaque etudiant.</span>
+        </div>
+        {% endif %}
 
         <div class="notes-panel mb-3">
             <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                <h6 class="mb-0">Notes du cours</h6>
-                <span class="small text-muted">Triees par timecode, cliquez pour aller au passage</span>
+                <h6 class="mb-0">{% if is_teacher %}Notes des etudiants{% else %}Mes notes personnelles{% endif %}</h6>
+                <span id="yt-notes-summary" class="small text-muted">{% if is_teacher %}Le professeur ne voit pas les notes privees{% else %}Charge tes notes de session{% endif %}</span>
             </div>
             <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
+            {% if not is_teacher %}
+            <div class="mb-2">
+                <button id="yt-resume-sync" type="button" class="btn btn-sm btn-outline-warning d-none">Reprendre la synchronisation avec la classe</button>
+            </div>
+            {% endif %}
             <ul id="yt-notes-list" class="notes-list"></ul>
         </div>
 
@@ -223,6 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let whiteboardPushTimer = null;
     let chatLastMessageId = 0;
     let chatPollTimer = null;
+    let studentFollowingSync = true;
 
     function getActiveVideoId() {
         return player && player.getVideoData ? (player.getVideoData().video_id || "") : "";
@@ -375,6 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     async function requestYTSync() {
         if (isTeacher) return;
+        if (!studentFollowingSync) return;
         try {
             const response = await fetch(syncStateUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
             if (!response.ok) return;
@@ -600,6 +629,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputNote = document.getElementById("yt-note-content");
     const notesList = document.getElementById("yt-notes-list");
     const notesStatus = document.getElementById("yt-notes-status");
+    const notesSummary = document.getElementById("yt-notes-summary");
+    const btnResumeSync = document.getElementById("yt-resume-sync");
     const whiteboardCanvas = document.getElementById("whiteboard-canvas");
     const whiteboardClear = document.getElementById("whiteboard-clear");
 
@@ -608,9 +639,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
     }
     function seekToNoteTime(timecode) {
-        const t = Math.max(0, Number(timecode) || 0);
+        const originalTime = Math.max(0, Number(timecode) || 0);
+        const t = Math.max(0, originalTime - 4);
         if (!player || !ytReady) return;
-        if (!isTeacher) return;
+        if (!isTeacher) {
+            studentFollowingSync = false;
+            if (btnResumeSync) btnResumeSync.classList.remove("d-none");
+            player.seekTo(t, true);
+            setNotesStatus(`Repere personnel ouvert 4 secondes avant ${formatTimecode(originalTime)}. Clique sur "Reprendre la synchronisation avec la classe" pour revenir avec les autres.`);
+            return;
+        }
         pushSyncState({ type: "seek", t, videoId: getActiveVideoId() }).catch(() => {});
         applyYT({ type: "seek", t });
     }
@@ -619,6 +657,17 @@ document.addEventListener("DOMContentLoaded", () => {
         notesStatus.textContent = message || "";
         notesStatus.classList.toggle("text-danger", Boolean(isError && message));
         notesStatus.classList.toggle("text-muted", !isError || !message);
+    }
+    function updateNotesSummary() {
+        if (!notesSummary || !notesList) return;
+        const count = notesList.querySelectorAll("li[data-timecode]").length;
+        if (!count) {
+            notesSummary.textContent = isTeacher ? "Le professeur ne voit pas les notes privees" : "Aucune note pour le moment";
+            return;
+        }
+        notesSummary.textContent = isTeacher
+            ? "Le professeur ne voit pas les notes privees"
+            : `${count} note${count > 1 ? "s" : ""} personnelle${count > 1 ? "s" : ""} triee${count > 1 ? "s" : ""} par moment video`;
     }
     function buildEmptyNoteItem() {
         const empty = document.createElement("li");
@@ -629,15 +678,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     function buildNoteItem(note) {
         const item = document.createElement("li");
-        item.className = "note-card text-light";
+        item.className = `note-card text-light${!isTeacher ? " is-readonly" : ""}`;
         item.dataset.timecode = String(note.timecode);
         item.dataset.noteId = String(note.id || "");
         item.tabIndex = 0;
         const header = document.createElement("div");
         header.className = "note-card-header";
         const meta = document.createElement("div");
-        meta.className = "small text-muted";
-        meta.textContent = `Par ${note.user || "Anonyme"}`;
+        meta.className = "note-meta";
+        const author = document.createElement("span");
+        author.className = "small text-muted";
+        author.textContent = `Par ${note.user || "Anonyme"}`;
+        meta.appendChild(author);
+        if ((note.user || "") === currentUser) {
+            const mine = document.createElement("span");
+            mine.className = "note-badge";
+            mine.textContent = "Ma note";
+            meta.appendChild(mine);
+        }
         const time = document.createElement("span");
         time.className = "note-time";
         time.textContent = formatTimecode(note.timecode);
@@ -648,7 +706,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const goBtn = document.createElement("button");
         goBtn.type = "button";
         goBtn.className = "btn btn-sm btn-outline-light";
-        goBtn.textContent = "Aller a la video";
+        goBtn.textContent = isTeacher ? "Aller a la video" : "Voir le repere";
         goBtn.addEventListener("click", event => { event.stopPropagation(); seekToNoteTime(note.timecode); });
         item.addEventListener("click", () => seekToNoteTime(note.timecode));
         item.addEventListener("keydown", event => {
@@ -676,11 +734,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (insertBefore) notesList.insertBefore(item, insertBefore);
         else notesList.appendChild(item);
+        updateNotesSummary();
     }
     function getCourseNotesAPI() { return window.CourseNotesAPI || null; }
     async function loadCourseNotes() {
         if (!notesList) return;
         notesList.innerHTML = "";
+        updateNotesSummary();
         setNotesStatus("Chargement des notes...");
         try {
             const api = getCourseNotesAPI();
@@ -689,6 +749,7 @@ document.addEventListener("DOMContentLoaded", () => {
             notes.sort((a, b) => ((Number(a.timecode) || 0) - (Number(b.timecode) || 0)) || ((Number(a.id) || 0) - (Number(b.id) || 0)));
             if (!notes.length) {
                 notesList.appendChild(buildEmptyNoteItem());
+                updateNotesSummary();
                 setNotesStatus("");
                 return;
             }
@@ -697,6 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (err) {
             console.error("notes_load_error", err);
             notesList.appendChild(buildEmptyNoteItem());
+            updateNotesSummary();
             setNotesStatus("Impossible de charger les notes pour le moment.", true);
         }
     }
@@ -744,6 +806,22 @@ document.addEventListener("DOMContentLoaded", () => {
             setNotesStatus("Echec de l'enregistrement de la note.", true);
         }
     };
+    if (btnResumeSync) {
+        btnResumeSync.addEventListener("click", () => {
+            studentFollowingSync = true;
+            btnResumeSync.classList.add("d-none");
+            setNotesStatus("Retour a la synchronisation de la classe.");
+            requestYTSync();
+        });
+    }
+    if (inputNote) {
+        inputNote.addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                if (btnAddNote) btnAddNote.click();
+            }
+        });
+    }
 
     function initWhiteboard() {
         const ctx = whiteboardCanvas.getContext("2d");

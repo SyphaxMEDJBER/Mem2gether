@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from authentification.models import UserProfile
 from .models import CourseNote, Room
 
 
@@ -16,10 +17,18 @@ def _parse_payload(request):
     return request.POST
 
 
+def _is_teacher(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    return profile.is_teacher
+
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def course_notes_api(request):
     if request.method == "POST":
+        if _is_teacher(request.user):
+            return JsonResponse({"error": "teachers_cannot_create_notes"}, status=403)
+
         payload = _parse_payload(request)
         if payload is None:
             return JsonResponse({"error": "invalid_json"}, status=400)
@@ -68,11 +77,13 @@ def course_notes_api(request):
     if not room_id:
         return JsonResponse({"error": "missing_room_id"}, status=400)
 
-    notes = (
-        CourseNote.objects.filter(room__room_id=room_id)
-        .select_related("user")
-        .order_by("timecode", "created_at")
-    )
+    notes = CourseNote.objects.none()
+    if not _is_teacher(request.user):
+        notes = (
+            CourseNote.objects.filter(room__room_id=room_id, user=request.user)
+            .select_related("user")
+            .order_by("timecode", "created_at")
+        )
 
     return JsonResponse(
         {
