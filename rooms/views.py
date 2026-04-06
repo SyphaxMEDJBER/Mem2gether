@@ -58,6 +58,13 @@ def _build_youtube_sync_payload(room):
     }
 
 
+def _build_whiteboard_payload(room):
+    return {
+        "image": room.whiteboard_data or "",
+        "updated_at": int(room.whiteboard_updated_at.timestamp() * 1000) if room.whiteboard_updated_at else 0,
+    }
+
+
 @login_required
 def participants_json(request, room_id):
     room = Room.objects.get(room_id=room_id)
@@ -121,6 +128,33 @@ def youtube_sync_state(request, room_id):
 
     room.save(update_fields=["youtube_video_id", "youtube_state", "youtube_time", "youtube_updated_at"])
     return JsonResponse({"ok": True, "sync": _build_youtube_sync_payload(room)})
+
+
+@login_required
+def whiteboard_sync_state(request, room_id):
+    room = Room.objects.get(room_id=room_id)
+    Participant.objects.get_or_create(room=room, user=request.user)
+
+    if request.method == "GET":
+        return JsonResponse(_build_whiteboard_payload(room))
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "method_not_allowed"}, status=405)
+
+    is_room_teacher = request.user == room.creator and _is_teacher(request.user)
+    if not is_room_teacher:
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    image = str(payload.get("image", ""))
+    room.whiteboard_data = image
+    room.whiteboard_updated_at = timezone.now()
+    room.save(update_fields=["whiteboard_data", "whiteboard_updated_at"])
+    return JsonResponse({"ok": True, "whiteboard": _build_whiteboard_payload(room)})
 
 
 def _extract_youtube_id(url: str) -> str:

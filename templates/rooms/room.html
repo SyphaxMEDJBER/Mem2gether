@@ -203,6 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentUser = "{{ request.user.username }}";
     const roomId = "{{ room.room_id }}";
     const syncStateUrl = `/rooms/${roomId}/sync-state/`;
+    const whiteboardStateUrl = `/rooms/${roomId}/whiteboard-state/`;
     const pageOrigin = window.location.origin;
     const pageHref = window.location.href;
     const protocol = (location.protocol === "https:" ? "wss://" : "ws://");
@@ -216,6 +217,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let syncStatusTimer = null;
     let studentAutoplayPrimed = false;
     let studentSyncTimer = null;
+    let whiteboardSyncTimer = null;
+    let whiteboardLastUpdatedAt = 0;
+    let whiteboardPushTimer = null;
 
     function getActiveVideoId() {
         return player && player.getVideoData ? (player.getVideoData().video_id || "") : "";
@@ -336,6 +340,31 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("sync fetch failed", err);
         }
     }
+    async function pushWhiteboardState(image) {
+        if (!isTeacher) return null;
+        const response = await fetch(whiteboardStateUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCSRFToken(),
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            body: JSON.stringify({ image }),
+        });
+        if (!response.ok) throw new Error(`whiteboard_post_${response.status}`);
+        const data = await response.json();
+        return data.whiteboard || null;
+    }
+    async function requestWhiteboardSync() {
+        try {
+            const response = await fetch(whiteboardStateUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            if (!response.ok) return;
+            const data = await response.json();
+            applyWhiteboardState(data);
+        } catch (err) {
+            console.log("whiteboard sync failed", err);
+        }
+    }
     function ensureYouTubeAPI() {
         if (window.YT && window.YT.Player) return;
         const s = document.createElement("script");
@@ -370,6 +399,34 @@ document.addEventListener("DOMContentLoaded", () => {
         if (player.mute) player.mute();
         studentAutoplayPrimed = true;
         player.loadVideoById(activeVideoId, Math.max(0, Number(targetTime) || 0));
+    }
+    function applyWhiteboardState(payload) {
+        if (!whiteboardCanvas || !payload) return;
+        const updatedAt = Number(payload.updated_at || 0);
+        if (updatedAt && updatedAt <= whiteboardLastUpdatedAt) return;
+        const ctx = whiteboardCanvas.getContext("2d");
+        if (!ctx) return;
+        const imageData = payload.image || "";
+        ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+        if (!imageData) {
+            whiteboardLastUpdatedAt = updatedAt;
+            return;
+        }
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+            ctx.drawImage(img, 0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+            whiteboardLastUpdatedAt = updatedAt;
+        };
+        img.src = imageData;
+    }
+    function scheduleWhiteboardPush() {
+        if (!isTeacher || !whiteboardCanvas) return;
+        if (whiteboardPushTimer) return;
+        whiteboardPushTimer = setTimeout(() => {
+            whiteboardPushTimer = null;
+            pushWhiteboardState(whiteboardCanvas.toDataURL("image/png")).catch(() => {});
+        }, 120);
     }
     function applyYT(ev) {
         if (!player || !ytReady) { pendingYTEvent = ev; return; }
@@ -645,9 +702,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     function initWhiteboard() {
-        if (!isTeacher || !whiteboardCanvas) return;
         const ctx = whiteboardCanvas.getContext("2d");
         if (!ctx) return;
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+        if (!isTeacher) {
+            requestWhiteboardSync();
+            whiteboardSyncTimer = setInterval(requestWhiteboardSync, 400);
+            return;
+        }
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.strokeStyle = "#111";
@@ -671,12 +734,28 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.lineTo(point.x, point.y);
             ctx.stroke();
         }
-        function stopDraw() { drawing = false; ctx.closePath(); }
+        function stopDraw() {
+            if (!drawing) return;
+            drawing = false;
+            ctx.closePath();
+            scheduleWhiteboardPush();
+        }
         whiteboardCanvas.addEventListener("pointerdown", startDraw);
-        whiteboardCanvas.addEventListener("pointermove", draw);
+        whiteboardCanvas.addEventListener("pointermove", event => {
+            draw(event);
+            if (drawing) scheduleWhiteboardPush();
+        });
         whiteboardCanvas.addEventListener("pointerup", stopDraw);
         whiteboardCanvas.addEventListener("pointerleave", stopDraw);
-        if (whiteboardClear) whiteboardClear.addEventListener("click", () => ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height));
+        if (whiteboardClear) {
+            whiteboardClear.addEventListener("click", () => {
+                ctx.clearRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(0, 0, whiteboardCanvas.width, whiteboardCanvas.height);
+                scheduleWhiteboardPush();
+            });
+        }
+        scheduleWhiteboardPush();
     }
 
     loadCourseNotes();
