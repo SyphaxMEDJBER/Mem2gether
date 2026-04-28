@@ -16,7 +16,7 @@ def signup(request):
         role = request.POST.get("role")
 
         if role not in {UserProfile.ROLE_TEACHER, UserProfile.ROLE_STUDENT}:
-            messages.error(request, "Choisissez un role entre professeur et eleve.")
+            messages.error(request, "Choisissez un rôle entre professeur et étudiant.")
             return redirect("signup")
 
         if password1 != password2:
