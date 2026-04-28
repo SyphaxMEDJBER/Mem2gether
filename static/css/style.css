@@ -345,6 +345,219 @@ footer {
     background-color: #b255d378 !important;
 }
 
+/* --- CGU PAGE --- */
+.cgu-page {
+    position: relative;
+    padding: 72px 0 36px;
+    overflow: hidden;
+}
+
+.cgu-page::before,
+.cgu-page::after {
+    content: "";
+    position: absolute;
+    width: 360px;
+    height: 360px;
+    border-radius: 999px;
+    filter: blur(18px);
+    opacity: 0.18;
+    pointer-events: none;
+}
+
+.cgu-page::before {
+    top: 40px;
+    left: -140px;
+    background: #7c3aed;
+}
+
+.cgu-page::after {
+    right: -120px;
+    bottom: 60px;
+    background: #ec4899;
+}
+
+.cgu-page .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1080px;
+}
+
+.cgu-hero {
+    max-width: 760px;
+    margin: 0 auto 28px;
+    text-align: center;
+}
+
+.cgu-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 8px 14px;
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    border-radius: 999px;
+    background: rgba(124, 58, 237, 0.14);
+    color: #c4b5fd;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.cgu-hero h1 {
+    margin-bottom: 16px;
+    color: #f8fafc;
+    font-size: clamp(2.2rem, 5vw, 4.4rem);
+    font-weight: 800;
+    line-height: 1.02;
+}
+
+.cgu-hero p {
+    margin: 0 auto;
+    color: #cbd5e1;
+    font-size: 1.12rem;
+    line-height: 1.75;
+}
+
+.cgu-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.cgu-summary div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 70px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    background: rgba(17, 17, 24, 0.72);
+    color: #e5e7eb;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.22);
+}
+
+.cgu-summary-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(167, 139, 250, 0.18);
+    color: #c4b5fd;
+}
+
+.cgu-card {
+    padding: clamp(24px, 4vw, 44px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 28px;
+    background:
+        linear-gradient(145deg, rgba(17, 17, 24, 0.94), rgba(8, 8, 12, 0.96)),
+        rgba(17, 17, 24, 0.92);
+    box-shadow: 0 24px 70px rgba(0,0,0,0.48);
+}
+
+.cgu-intro {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.cgu-intro h2 {
+    margin-bottom: 10px;
+    color: #a78bfa;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 800;
+}
+
+.cgu-intro p,
+.cgu-section p,
+.cgu-section li {
+    color: #d1d5db;
+    line-height: 1.75;
+}
+
+.cgu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.cgu-section {
+    position: relative;
+    min-height: 220px;
+    padding: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    background: rgba(255,255,255,0.035);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.cgu-section:hover {
+    transform: translateY(-4px);
+    border-color: rgba(167, 139, 250, 0.42);
+    background: rgba(124, 58, 237, 0.09);
+}
+
+.cgu-number {
+    display: inline-flex;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(167, 139, 250, 0.16);
+    color: #c4b5fd;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.cgu-section h3 {
+    margin-bottom: 12px;
+    color: #f8fafc;
+    font-size: 1.18rem;
+    font-weight: 800;
+}
+
+.cgu-section ul {
+    margin: 0;
+    padding-left: 1.15rem;
+}
+
+.cgu-section li + li {
+    margin-top: 8px;
+}
+
+.cgu-footer-note {
+    margin-top: 24px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: rgba(124, 58, 237, 0.14);
+    color: #e5e7eb;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .cgu-page {
+        padding-top: 48px;
+    }
+
+    .cgu-summary,
+    .cgu-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cgu-summary div {
+        justify-content: flex-start;
+    }
+
+    .cgu-section {
+        min-height: auto;
+    }
+}
+
 /* ----------------------------- */
 /*          ROOM PAGE            */
 /* ----------------------------- */
