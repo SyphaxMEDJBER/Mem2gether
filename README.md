@@ -1,19 +1,19 @@
 # Mem2gether
 
-Application web collaborative en temps reel construite avec Django et Channels.  
-Le projet permet a plusieurs utilisateurs connectes de rejoindre une room, discuter, partager des images, synchroniser une video YouTube et ajouter des notes horodatees.
+Application web collaborative en temps réel construite avec Django et Channels.  
+Le projet permet à plusieurs utilisateurs connectés de rejoindre une room, discuter, partager des images, synchroniser une vidéo YouTube et ajouter des notes horodatées.
 
 ## Table des matieres
 
 - [Mem2gether](#mem2gether)
-  - [Table des matieres](#table-des-matieres)
-  - [Apercu](#apercu)
-  - [Fonctionnalites](#fonctionnalites)
+  - [Table des matières](#table-des-matières)
+  - [Aperçu](#aperçu)
+  - [Fonctionnalités](#fonctionnalités)
   - [Stack technique](#stack-technique)
-  - [Demarrage rapide](#demarrage-rapide)
-    - [1. Cloner le depot](#1-cloner-le-depot)
-    - [2. Creer un environnement virtuel](#2-creer-un-environnement-virtuel)
-    - [3. Installer les dependances](#3-installer-les-dependances)
+  - [Démarrage rapide](#démarrage-rapide)
+    - [1. Cloner le dépôt](#1-cloner-le-dépôt)
+    - [2. Créer un environnement virtuel](#2-créer-un-environnement-virtuel)
+    - [3. Installer les dépendances](#3-installer-les-dépendances)
     - [4. Appliquer les migrations](#4-appliquer-les-migrations)
     - [5. Lancer le serveur](#5-lancer-le-serveur)
   - [Configuration](#configuration)
@@ -22,25 +22,25 @@ Le projet permet a plusieurs utilisateurs connectes de rejoindre une room, discu
     - [`POST /api/notes/`](#post-apinotes)
   - [WebSockets](#websockets)
   - [Structure du projet](#structure-du-projet)
-  - [Securite et bonnes pratiques](#securite-et-bonnes-pratiques)
+  - [Sécurité et bonnes pratiques](#sécurité-et-bonnes-pratiques)
 
-## Apercu
+## Aperçu
 
-Mem2gether est une plateforme de travail/groupe orientee synchronisation:
+Mem2gether est une plateforme de travail/groupe orientée synchronisation:
 
-- un createur ouvre une room et partage son code
+- un créateur ouvre une room et partage son code
 - les participants rejoignent la session en direct
-- les contenus et interactions sont diffuses en temps reel (chat, photos, video, reactions)
+- les contenus et interactions sont diffusés en temps réel (chat, photos, vidéo, réactions)
 
-## Fonctionnalites
+## Fonctionnalités
 
 - Authentification utilisateur (signup, signin, logout, profil, suppression de compte)
-- Creation et participation a des rooms privees via un identifiant court
-- Chat temps reel par room
-- Mode `Photos`: upload d'images, file d'attente et image courante synchronisee
-- Mode `YouTube`: synchronisation lecture/pause/seek et changement de video depuis URL/ID
-- Notes de cours associees a un timecode (API + interface room)
-- Reactions emoji en temps reel
+- Création et participation à des rooms privées via un identifiant court
+- Chat temps réel par room
+- Mode `Photos`: upload d'images, file d'attente et image courante synchronisée
+- Mode `YouTube`: synchronisation lecture/pause/seek et changement de vidéo depuis URL/ID
+- Notes de cours associées à un timecode (API + interface room)
+- Réactions emoji en temps réel
 - API HTTP pour lire/ajouter des notes
 
 ## Stack technique
@@ -48,19 +48,19 @@ Mem2gether est une plateforme de travail/groupe orientee synchronisation:
 - Python 3.x
 - Django 4.x
 - Django Channels (WebSocket)
-- SQLite (par defaut)
+- SQLite (par défaut)
 - HTML/CSS/JS (templates Django)
 
-## Demarrage rapide
+## Démarrage rapide
 
-### 1. Cloner le depot
+### 1. Cloner le dépôt
 
 ```bash
 git clone https://github.com/SyphaxMEDJBER/Mem2gether.git
 cd Mem2gether
 ```
 
-### 2. Creer un environnement virtuel
+### 2. Créer un environnement virtuel
 
 ```bash
 python -m venv .venv
@@ -78,7 +78,7 @@ macOS/Linux:
 source .venv/bin/activate
 ```
 
-### 3. Installer les dependances
+### 3. Installer les dépendances
 
 ```bash
 pip install -r requirements.txt

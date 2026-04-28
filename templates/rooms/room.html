@@ -89,7 +89,7 @@
         <div class="text-start">
             <strong>Room {{ room.room_id }}</strong>
             <p class="mb-0 text-muted">
-                Creee par <span class="text-warning">{{ room.creator.username }}</span> - Mode : <span class="text-warning">YouTube</span>
+                Créée par <span class="text-warning">{{ room.creator.username }}</span> - Mode : <span class="text-warning">YouTube</span>
             </p>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -107,7 +107,7 @@
             <div class="participant-item mb-1 d-flex justify-content-between align-items-center">
                 <div class="d-flex flex-column">
                     <span class="fw-semibold">{{ p.user.username }}</span>
-                    <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Etudiant{% endif %}</span>
+                    <span class="small text-muted">{% if p.user.userprofile.role == 'teacher' %}Professeur{% else %}Étudiant{% endif %}</span>
                 </div>
                 <div class="d-flex gap-1">
                     {% if p.user.userprofile.role == 'teacher' %}<span class="badge bg-warning text-dark">Prof</span>{% endif %}
@@ -123,10 +123,10 @@
             <h5 class="mb-2">Infos room</h5>
             <ul class="list-unstyled text-muted small">
                 <li>ID : {{ room.room_id }}</li>
-                <li>Createur : {{ room.creator.username }}</li>
-                <li>Votre role : {{ user_role|title }}</li>
+                <li>Créateur : {{ room.creator.username }}</li>
+                <li>Votre rôle : {{ user_role|title }}</li>
                 <li>Mode : YouTube</li>
-                <li>Creee le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
+                <li>Créée le : {{ room.created_at|date:"d/m/Y H:i" }}</li>
             </ul>
             <a href="/rooms/{{ room.room_id }}/leave/" class="btn btn-outline-light w-100 mt-4">Quitter la room</a>
         </div>
@@ -135,11 +135,11 @@
     <section class="room-main">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
-                <h5 class="mb-1">Session video collaborative</h5>
-                <span class="text-muted small">Synchronisation en temps reel</span>
+                <h5 class="mb-1">Session vidéo collaborative</h5>
+                <span class="text-muted small">Synchronisation en temps réel</span>
             </div>
-            <span id="sync-status" class="sync-pill">Synchronise</span>
-            {% if not is_teacher %}<span class="sync-lock">Controle video reserve au professeur</span>{% endif %}
+            <span id="sync-status" class="sync-pill">Synchronisé</span>
+            {% if not is_teacher %}<span class="sync-lock">Contrôle vidéo réservé au professeur</span>{% endif %}
         </div>
 
         <div class="row g-3 align-items-stretch mb-3">
@@ -165,8 +165,8 @@
         {% if is_teacher %}
         <form method="POST" class="mb-4">
             {% csrf_token %}
-            <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID video" />
-            <button type="submit" class="btn btn-primary w-100">Definir la video</button>
+            <input type="text" name="youtube_url" class="form-control mb-2" placeholder="Lien YouTube ou ID vidéo" />
+            <button type="submit" class="btn btn-primary w-100">Définir la vidéo</button>
         </form>
         {% endif %}
 
@@ -178,7 +178,7 @@
         </div>
         {% else %}
         <div class="mb-3">
-            <span class="text-muted small">Lecture controlee par le professeur.</span>
+            <span class="text-muted small">Lecture contrôlée par le professeur.</span>
         </div>
         <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
             <button id="yt-toggle-sound" class="btn btn-outline-light" type="button">Activer le son</button>
@@ -188,19 +188,19 @@
 
         {% if not is_teacher %}
         <div class="d-flex gap-2 mb-3 flex-wrap">
-            <input id="yt-note-content" type="text" class="form-control" placeholder="Ex : definition importante, formule, question..." />
+            <input id="yt-note-content" type="text" class="form-control" placeholder="Ex : définition importante, formule, question..." />
             <button id="yt-add-note" class="btn btn-outline-light" type="button">Ajouter la note</button>
         </div>
         {% else %}
         <div class="mb-3">
-            <span class="text-muted small">Les notes sont privees et creees uniquement par chaque etudiant.</span>
+            <span class="text-muted small">Les notes sont privées et créées uniquement par chaque étudiant.</span>
         </div>
         {% endif %}
 
         <div class="notes-panel mb-3">
             <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-                <h6 class="mb-0">{% if is_teacher %}Notes des etudiants{% else %}Mes notes personnelles{% endif %}</h6>
-                <span id="yt-notes-summary" class="small text-muted">{% if is_teacher %}Le professeur ne voit pas les notes privees{% else %}Charge tes notes de session{% endif %}</span>
+                <h6 class="mb-0">{% if is_teacher %}Notes des étudiants{% else %}Mes notes personnelles{% endif %}</h6>
+                <span id="yt-notes-summary" class="small text-muted">{% if is_teacher %}Le professeur ne voit pas les notes privées{% else %}Charge tes notes de session{% endif %}</span>
             </div>
             <div id="yt-notes-status" class="small text-muted mb-2" aria-live="polite"></div>
             {% if not is_teacher %}
@@ -301,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (syncStatusTimer) clearTimeout(syncStatusTimer);
         if (warning) {
             syncStatusTimer = setTimeout(() => {
-                el.textContent = "Synchronise";
+                el.textContent = "Synchronisé";
                 el.classList.remove("is-warning");
             }, 1200);
         }
@@ -312,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!list) return;
         let html = "<h5 class='mb-3'>Participants</h5>";
         participants.forEach(participant => {
-            const role = participant.role === "teacher" ? "Professeur" : "Etudiant";
+            const role = participant.role === "teacher" ? "Professeur" : "Étudiant";
             const isCurrentUser = participant.username === currentUser;
             html += `<div class="participant-item d-flex justify-content-between align-items-center">
                 <div class="d-flex flex-column">
@@ -603,7 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (ev.state === "paused") player.pauseVideo();
             }
-            setSyncStatus(corrected ? "Recalage..." : "Synchronise", corrected);
+            setSyncStatus(corrected ? "Recalage..." : "Synchronisé", corrected);
         } finally {
             setTimeout(() => { suppress = false; }, 200);
             setTimeout(updateTeacherHeartbeat, 250);
@@ -668,7 +668,7 @@ document.addEventListener("DOMContentLoaded", () => {
             studentFollowingSync = false;
             if (btnResumeSync) btnResumeSync.classList.remove("d-none");
             player.seekTo(t, true);
-            setNotesStatus(`Repere personnel ouvert 4 secondes avant ${formatTimecode(originalTime)}. Clique sur "Reprendre la synchronisation avec la classe" pour revenir avec les autres.`);
+            setNotesStatus(`Repère personnel ouvert 4 secondes avant ${formatTimecode(originalTime)}. Clique sur "Reprendre la synchronisation avec la classe" pour revenir avec les autres.`);
             return;
         }
         pushSyncState({ type: "seek", t, videoId: getActiveVideoId() }).catch(() => {});
@@ -684,18 +684,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!notesSummary || !notesList) return;
         const count = notesList.querySelectorAll("li[data-timecode]").length;
         if (!count) {
-            notesSummary.textContent = isTeacher ? "Le professeur ne voit pas les notes privees" : "Aucune note pour le moment";
+            notesSummary.textContent = isTeacher ? "Le professeur ne voit pas les notes privées" : "Aucune note pour le moment";
             return;
         }
         notesSummary.textContent = isTeacher
-            ? "Le professeur ne voit pas les notes privees"
-            : `${count} note${count > 1 ? "s" : ""} personnelle${count > 1 ? "s" : ""} triee${count > 1 ? "s" : ""} par moment video`;
+            ? "Le professeur ne voit pas les notes privées"
+            : `${count} note${count > 1 ? "s" : ""} personnelle${count > 1 ? "s" : ""} triée${count > 1 ? "s" : ""} par moment vidéo`;
     }
     function buildEmptyNoteItem() {
         const empty = document.createElement("li");
         empty.className = "note-card text-light";
         empty.dataset.empty = "true";
-        empty.textContent = "Aucune note enregistree pour le moment.";
+        empty.textContent = "Aucune note enregistrée pour le moment.";
         return empty;
     }
     function buildNoteItem(note) {
@@ -728,7 +728,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const goBtn = document.createElement("button");
         goBtn.type = "button";
         goBtn.className = "btn btn-sm btn-outline-light";
-        goBtn.textContent = isTeacher ? "Aller a la video" : "Voir le repere";
+        goBtn.textContent = isTeacher ? "Aller à la vidéo" : "Voir le repère";
         goBtn.addEventListener("click", event => { event.stopPropagation(); seekToNoteTime(note.timecode); });
         item.addEventListener("click", () => seekToNoteTime(note.timecode));
         item.addEventListener("keydown", event => {
@@ -849,24 +849,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const content = inputNote.value.trim();
         if (!content) return;
         const api = getCourseNotesAPI();
-        if (!api) { setNotesStatus("Le module de notes n'est pas charge.", true); return; }
+        if (!api) { setNotesStatus("Le module de notes n'est pas chargé.", true); return; }
         const timecode = (player && ytReady && player.getCurrentTime) ? Math.floor(player.getCurrentTime()) : 0;
         setNotesStatus("Enregistrement de la note...");
         try {
             const note = await api.addNote(timecode, content, roomId);
             appendNote(note);
             inputNote.value = "";
-            setNotesStatus(`Note enregistree a ${formatTimecode(note.timecode)}.`);
+            setNotesStatus(`Note enregistrée à ${formatTimecode(note.timecode)}.`);
         } catch (err) {
             console.error("note_save_error", err);
-            setNotesStatus("Echec de l'enregistrement de la note.", true);
+            setNotesStatus("Échec de l'enregistrement de la note.", true);
         }
     };
     if (btnResumeSync) {
         btnResumeSync.addEventListener("click", () => {
             studentFollowingSync = true;
             btnResumeSync.classList.add("d-none");
-            setNotesStatus("Retour a la synchronisation de la classe.");
+            setNotesStatus("Retour à la synchronisation de la classe.");
             requestYTSync();
         });
     }
