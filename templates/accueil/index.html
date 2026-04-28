@@ -2,44 +2,123 @@
 {% load static %}
 
 {% block content %}
-<div class="hero">
-    <div class="hero-overlay"></div>
-    <div class="hero-actions-bar d-flex flex-column flex-md-row justify-content-center align-items-center gap-3 mt-4">
-        {% if user.is_authenticated and user.userprofile.role == "teacher" %}
-        <a href="/rooms/create/" class="btn btn-primary btn-lg px-4">Creer une room</a>
-        {% elif user.is_authenticated %}
-        <a href="/rooms/join/" class="btn btn-primary btn-lg px-4">Rejoindre une room</a>
-        {% else %}
-        <a href="/signin" class="btn btn-primary btn-lg px-4">Commencer</a>
-        <a href="/signup" class="btn btn-outline-light btn-lg px-4">Creer un compte</a>
-        {% endif %}
+<section class="home-hero">
+    <div class="container">
+        <div class="home-hero-grid">
+            <div class="home-hero-content">
+                <span class="home-eyebrow">Apprendre ensemble, en temps réel</span>
+                <h1>Des cours synchronisés pour rester connectés.</h1>
+                <p>
+                    Mem2gether réunit enseignants et étudiants dans des rooms collaboratives :
+                    vidéo partagée, chat, images, réactions et notes au même endroit.
+                </p>
+
+                <div class="home-actions">
+                    {% if user.is_authenticated and user.userprofile.role == "teacher" %}
+                        <a href="/rooms/create/" class="btn home-btn-primary btn-lg">Créer une room</a>
+                    {% elif user.is_authenticated %}
+                        <a href="/rooms/join/" class="btn home-btn-primary btn-lg">Rejoindre une room</a>
+                    {% else %}
+                        <a href="/signin" class="btn home-btn-primary btn-lg">Commencer</a>
+                        <a href="/signup" class="btn home-btn-secondary btn-lg">Créer un compte</a>
+                    {% endif %}
+                </div>
+
+                <div class="home-stats">
+                    <div>
+                        <strong>Live</strong>
+                        <span>Sessions interactives</span>
+                    </div>
+                    <div>
+                        <strong>Notes</strong>
+                        <span>Repères personnalisés</span>
+                    </div>
+                    <div>
+                        <strong>Rooms</strong>
+                        <span>Accès simple et privé</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="home-visual" aria-label="Aperçu de Mem2gether">
+                <div class="home-visual-card home-video-card">
+                    <span class="home-live-dot"></span>
+                    <div>
+                        <strong>Cours vidéo synchronisé</strong>
+                        <small>Lecture partagée avec la classe</small>
+                    </div>
+                </div>
+                <div class="home-screen">
+                    <img src="{% static 'images/image5.png' %}" alt="Illustration Mem2gether">
+                </div>
+                <div class="home-visual-card home-chat-card">
+                    <strong>💬 Chat actif</strong>
+                    <span>Une question ? Toute la room suit.</span>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+</section>
 
-<div class="container py-5 home-features">
-    <h2 class="text-center fw-bold mb-5">Fonctionnalites</h2>
-
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h4 class="fw-bold">Cours synchronises</h4>
-                <p class="text-muted">Le professeur pilote la video et toute la classe suit au meme rythme.</p>
-            </div>
+<section class="home-features-section">
+    <div class="container">
+        <div class="home-section-heading">
+            <span>Fonctionnalités</span>
+            <h2>Tout pour suivre un cours sans perdre le fil.</h2>
         </div>
 
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h4 class="fw-bold">Tableau et chat</h4>
-                <p class="text-muted">Expliquez, dessinez et echangez en direct pendant le cours.</p>
-            </div>
+        <div class="home-feature-grid">
+            <article class="feature-card">
+                <div class="feature-icon">▶</div>
+                <h3>Cours synchronisés</h3>
+                <p>Le professeur pilote la vidéo et toute la classe avance au même rythme.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Chat en direct</h3>
+                <p>Posez des questions, échangez et gardez le contexte du cours en temps réel.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">🖼</div>
+                <h3>Partage d’images</h3>
+                <p>Affichez des supports visuels dans la room pour illustrer les explications.</p>
+            </article>
+
+            <article class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3>Notes personnelles</h3>
+                <p>Chaque étudiant crée ses repères pour réviser sans gêner la classe.</p>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="home-steps-section">
+    <div class="container">
+        <div class="home-section-heading">
+            <span>Comment ça marche ?</span>
+            <h2>Une room, un code, et tout le monde est prêt.</h2>
         </div>
 
-        <div class="col-md-4">
-            <div class="feature-card">
-                <h4 class="fw-bold">Notes personnelles</h4>
-                <p class="text-muted">Chaque etudiant cree ses propres reperes pour reviser sans gener la classe.</p>
+        <div class="home-steps">
+            <div class="home-step">
+                <span>01</span>
+                <h3>Créer</h3>
+                <p>L’enseignant ouvre une room privée en quelques secondes.</p>
+            </div>
+            <div class="home-step">
+                <span>02</span>
+                <h3>Inviter</h3>
+                <p>Les participants rejoignent la session avec un identifiant simple.</p>
+            </div>
+            <div class="home-step">
+                <span>03</span>
+                <h3>Collaborer</h3>
+                <p>Tout le groupe suit la vidéo, échange et prend des notes ensemble.</p>
             </div>
         </div>
     </div>
-</div>
+</section>
 {% endblock %}

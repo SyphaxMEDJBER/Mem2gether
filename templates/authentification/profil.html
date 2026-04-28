@@ -2,36 +2,60 @@
 {% load static %}
 
 {% block content %}
+<section class="account-page">
+    <div class="container">
+        <div class="account-card">
+            <div class="account-header">
+                <div class="account-avatar">
+                    {{ user.username|first|upper }}
+                </div>
+                <div>
+                    <span class="account-eyebrow">Espace personnel</span>
+                    <h1>Mon compte</h1>
+                    <p>Gérez vos informations et votre session Mem2gether.</p>
+                </div>
+            </div>
 
-<div class="container py-5">
+            <div class="account-info-grid">
+                <div class="account-info-item">
+                    <span>Nom d’utilisateur</span>
+                    <strong>{{ user.username }}</strong>
+                </div>
 
-    <div class="profile-card mx-auto p-4 shadow-lg">
-        
-        <h2 class="text-center mb-4 title-profile">Mon compte</h2>
+                <div class="account-info-item">
+                    <span>Adresse e-mail</span>
+                    <strong>{{ user.email|default:"Non renseignée" }}</strong>
+                </div>
 
-        <div class="info-box p-3 mb-4">
-            <p><strong>Nom d'utilisateur :</strong> {{ user.username }}</p>
-            <p><strong>Email :</strong> {{ user.email }}</p>
-            <p><strong>Role :</strong> {{ profile.get_role_display }}</p>
-        </div>
+                <div class="account-info-item">
+                    <span>Rôle</span>
+                    <strong>{{ profile.get_role_display }}</strong>
+                </div>
+            </div>
 
-        <div class="d-flex flex-column gap-3">
-           
-            <form method="POST" action="{% url 'supprimer_compte' %}">
-                {% csrf_token %}
-                <button type="submit"
-                        class="btn btn-outline-danger w-100 py-2"
-                        onclick="return confirm('Supprimer votre compte définitivement ?');">
-                    Supprimer mon compte
-                </button>
-            </form>
+            <div class="account-status">
+                <div>
+                    <span class="account-status-dot"></span>
+                    Compte actif
+                </div>
+                <small>Vous êtes connecté à Mem2gether.</small>
+            </div>
 
-            <a href="/auth/logout/" class="btn btn-outline-light w-100 py-2">
-                Déconnexion
-            </a>
+            <div class="account-actions">
+                <a href="/auth/logout/" class="btn account-logout-btn">
+                    Déconnexion
+                </a>
+
+                <form method="POST" action="{% url 'supprimer_compte' %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="btn account-delete-btn"
+                            onclick="return confirm('Supprimer votre compte définitivement ? Cette action est irréversible.');">
+                        Supprimer mon compte
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
-
-</div>
-
+</section>
 {% endblock %}

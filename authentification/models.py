@@ -9,7 +9,7 @@ class UserProfile(models.Model):
     ROLE_TEACHER = "teacher"
     ROLE_CHOICES = (
         (ROLE_TEACHER, "Professeur"),
-        (ROLE_STUDENT, "Eleve"),
+        (ROLE_STUDENT, "Étudiant"),
     )
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
