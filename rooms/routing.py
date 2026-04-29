@@ -1,3 +1,5 @@
+"""Routes WebSocket Channels pour les rooms."""
+
 from django.urls import re_path
 from .consumers import ChatConsumer, YouTubeConsumer
 

@@ -1,3 +1,5 @@
+"""Routes HTTP de l'application rooms."""
+
 from django.urls import path
 from . import views
 

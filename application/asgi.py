@@ -1,3 +1,9 @@
+"""Point d'entree ASGI.
+
+ASGI sert a la fois les requetes HTTP Django classiques et les connexions
+WebSocket Django Channels utilisees par les rooms.
+"""
+
 import os
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "application.settings")

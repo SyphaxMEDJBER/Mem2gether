@@ -1,8 +1,16 @@
+"""Modeles metier de l'application collaborative.
+
+Le modele Room porte l'etat partage d'une session: video YouTube,
+tableau blanc, participants, messages et notes de cours.
+"""
+
 from django.db import models
 from django.contrib.auth.models import User
 
 
 class Room(models.Model):
+    """Session collaborative creee par un professeur."""
+
     MODE_CHOICES = (
         ("youtube", "YouTube"),
     )
@@ -13,10 +21,15 @@ class Room(models.Model):
     password = models.CharField(max_length=20, blank=True)
     mode = models.CharField(max_length=10, choices=MODE_CHOICES, default="youtube")
 
+    # Etat persistant utilise pour recaler les eleves quand ils arrivent
+    # ou quand leur lecteur video prend du retard.
     youtube_video_id = models.CharField(max_length=32, blank=True, default="")
     youtube_state = models.CharField(max_length=10, blank=True, default="paused")
     youtube_time = models.FloatField(default=0.0)
     youtube_updated_at = models.DateTimeField(null=True, blank=True)
+
+    # Snapshot PNG du canvas, encode en data URL. Les etudiants relisent ce
+    # snapshot regulierement pour afficher le tableau blanc du professeur.
     whiteboard_data = models.TextField(blank=True, default="")
     whiteboard_updated_at = models.DateTimeField(null=True, blank=True)
 
@@ -25,6 +38,8 @@ class Room(models.Model):
 
 
 class Participant(models.Model):
+    """Presence d'un utilisateur dans une room."""
+
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="participants")
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     joined_at = models.DateTimeField(auto_now_add=True)
@@ -34,6 +49,8 @@ class Participant(models.Model):
 
 
 class Message(models.Model):
+    """Message de chat rattache a une room."""
+
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="messages")
     user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL)
     content = models.TextField()
@@ -47,6 +64,8 @@ class Message(models.Model):
 
 
 class CourseNote(models.Model):
+    """Note personnelle posee sur un timecode de la video."""
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="course_notes")
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="course_notes")
     content = models.TextField()

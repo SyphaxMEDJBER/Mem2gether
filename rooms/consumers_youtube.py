@@ -1,7 +1,14 @@
+"""Ancien consumer YouTube minimal.
+
+Le consumer principal est aujourd'hui rooms.consumers.YouTubeConsumer, qui
+persiste l'etat video en base avant de diffuser les evenements.
+"""
+
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 
 class YouTubeConsumer(AsyncWebsocketConsumer):
+    """Broadcast brut des evenements YouTube a tous les clients du groupe."""
 
     async def connect(self):
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]

@@ -1,3 +1,5 @@
+"""Routage HTTP principal du projet."""
+
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView, RedirectView
@@ -7,6 +9,7 @@ from django.http import FileResponse, Http404
 import os
 
 def serve_media(request, path):
+    """Sert les fichiers media quand l'application tourne sous Daphne."""
     file_path = os.path.join(settings.MEDIA_ROOT, path)
     if not os.path.exists(file_path):
         raise Http404
