@@ -1,7 +1,7 @@
 # Mem2gether
 
 Application web collaborative en temps réel construite avec Django et Channels.  
-Le projet permet à plusieurs utilisateurs connectés de rejoindre une room, discuter, partager des images, synchroniser une vidéo YouTube et ajouter des notes horodatées.
+Le projet permet à plusieurs utilisateurs connectés de rejoindre une room, discuter, utiliser un tableau blanc, synchroniser une vidéo YouTube et ajouter des notes horodatées.
 
 ## Table des matieres
 
@@ -30,15 +30,15 @@ Mem2gether est une plateforme de travail/groupe orientée synchronisation:
 
 - un créateur ouvre une room et partage son code
 - les participants rejoignent la session en direct
-- les contenus et interactions sont diffusés en temps réel (chat, photos, vidéo, réactions)
+- les contenus et interactions sont diffusés en temps réel (chat, tableau blanc, vidéo, réactions)
 
 ## Fonctionnalités
 
 - Authentification utilisateur (signup, signin, logout, profil, suppression de compte)
 - Création et participation à des rooms privées via un identifiant court
 - Chat temps réel par room
-- Mode `Photos`: upload d'images, file d'attente et image courante synchronisée
 - Mode `YouTube`: synchronisation lecture/pause/seek et changement de vidéo depuis URL/ID
+- Tableau blanc synchronisé entre le professeur et les étudiants
 - Notes de cours associées à un timecode (API + interface room)
 - Réactions emoji en temps réel
 - API HTTP pour lire/ajouter des notes
@@ -149,7 +149,6 @@ Exemple payload JSON:
 Routes principales:
 
 - `/ws/rooms/<room_id>/` : chat + events de room (participants, mode, fermeture)
-- `/ws/photos/<room_id>/` : synchronisation photos
 - `/ws/youtube/<room_id>/` : synchronisation YouTube
 - `/ws/reactions/<room_id>/` : reactions emoji
 
@@ -158,7 +157,7 @@ Routes principales:
 ```text
 application/        # Configuration Django (settings, urls, asgi, routing)
 authentification/   # Inscription, connexion, profil
-rooms/              # Metier principal: rooms, chat, photos, YouTube, notes, WS
+rooms/              # Métier principal: rooms, chat, tableau blanc, YouTube, notes, WS
 templates/          # Templates HTML
 static/             # Assets statiques (CSS, JS, images)
 media/              # Uploads utilisateurs
@@ -174,3 +173,11 @@ Avant une mise en production:
 - remplacer `InMemoryChannelLayer` par Redis (`channels_redis`)
 - configurer un stockage media adapte et une politique de retention
 - activer les parametres de securite Django (HTTPS, CSRF/SESSION cookies, hosts stricts)
+
+## Documentation detaillee
+
+Une documentation plus complete est disponible dans
+[`docs/PROJECT_DOCUMENTATION.md`](docs/PROJECT_DOCUMENTATION.md).
+
+Elle decrit l'architecture, les roles, les modeles, les endpoints, les flux de
+synchronisation YouTube/tableau blanc, les WebSockets et les commandes de test.

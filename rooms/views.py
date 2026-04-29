@@ -1,3 +1,10 @@
+"""Vues principales des rooms.
+
+Ce module regroupe les pages HTML et les endpoints AJAX utilises par
+l'interface de room: participants, chat, synchronisation YouTube, tableau blanc
+et notes.
+"""
+
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -15,11 +22,13 @@ from urllib.parse import parse_qs, urlparse
 
 
 def _is_teacher(user):
+    """Verifie le role applicatif de l'utilisateur."""
     profile, _ = UserProfile.objects.get_or_create(user=user)
     return profile.is_teacher
 
 
 def _serialize_participants(room):
+    """Transforme les participants en donnees JSON consommables par le front."""
     participants = room.participants.select_related("user", "user__userprofile").order_by("joined_at")
     return [
         {
@@ -32,6 +41,7 @@ def _serialize_participants(room):
 
 
 def _broadcast_participants(room):
+    """Diffuse la liste des participants aux WebSockets de la room."""
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         f"room_{room.room_id}",
@@ -43,12 +53,14 @@ def _broadcast_participants(room):
 
 
 def _broadcast_room_closed(room_id):
+    """Informe les clients qu'une room a ete fermee par son createur."""
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(f"room_{room_id}", {"type": "room_closed"})
     async_to_sync(channel_layer.group_send)(f"chat_{room_id}", {"type": "room_closed"})
 
 
 def _build_youtube_sync_payload(room):
+    """Construit l'etat video actuel pour initialiser ou recaler un client."""
     current_time = room.youtube_time or 0.0
     if room.youtube_state == "playing" and room.youtube_updated_at:
         current_time = max(
@@ -65,6 +77,7 @@ def _build_youtube_sync_payload(room):
 
 
 def _build_whiteboard_payload(room):
+    """Renvoie le dernier snapshot connu du tableau blanc."""
     return {
         "image": room.whiteboard_data or "",
         "updated_at": int(room.whiteboard_updated_at.timestamp() * 1000) if room.whiteboard_updated_at else 0,
@@ -72,6 +85,7 @@ def _build_whiteboard_payload(room):
 
 
 def _serialize_message(message):
+    """Format JSON minimal d'un message de chat."""
     return {
         "id": message.id,
         "user": message.user.username if message.user else "Anonyme",
@@ -82,6 +96,7 @@ def _serialize_message(message):
 
 @login_required
 def participants_json(request, room_id):
+    """Endpoint AJAX pour recuperer les participants d'une room."""
     try:
         room = Room.objects.get(room_id=room_id)
     except Room.DoesNotExist:
@@ -92,6 +107,10 @@ def participants_json(request, room_id):
 
 @login_required
 def room_messages_state(request, room_id):
+    """Endpoint AJAX de lecture/ecriture du chat.
+
+    GET renvoie les messages recents, POST ajoute un message.
+    """
     try:
         room = Room.objects.get(room_id=room_id)
     except Room.DoesNotExist:
@@ -127,6 +146,10 @@ def room_messages_state(request, room_id):
 
 @login_required
 def youtube_sync_state(request, room_id):
+    """Endpoint AJAX de synchronisation YouTube.
+
+    Les etudiants lisent l'etat en GET. Le professeur modifie l'etat en POST.
+    """
     try:
         room = Room.objects.get(room_id=room_id)
     except Room.DoesNotExist:
@@ -188,6 +211,11 @@ def youtube_sync_state(request, room_id):
 
 @login_required
 def whiteboard_sync_state(request, room_id):
+    """Endpoint AJAX de synchronisation du tableau blanc.
+
+    Le professeur poste une image PNG du canvas. Les etudiants recuperent
+    regulierement le dernier snapshot.
+    """
     try:
         room = Room.objects.get(room_id=room_id)
     except Room.DoesNotExist:
@@ -217,6 +245,7 @@ def whiteboard_sync_state(request, room_id):
 
 
 def _extract_youtube_id(url: str) -> str:
+    """Extrait l'identifiant video depuis une URL YouTube ou un ID brut."""
     if not url:
         return ""
     url = url.strip()
@@ -275,6 +304,7 @@ def _extract_youtube_id(url: str) -> str:
 
 @login_required
 def create_room(request):
+    """Cree une room YouTube pour un professeur connecte."""
     if not _is_teacher(request.user):
         return render(
             request,
@@ -290,6 +320,7 @@ def create_room(request):
 
 @login_required
 def join_room(request):
+    """Affiche le formulaire d'entree ou redirige vers la room demandee."""
     if request.method == "GET":
         return render(request, "rooms/join_room.html")
 
@@ -303,6 +334,7 @@ def join_room(request):
 
 @login_required
 def room_view(request, room_id):
+    """Page principale d'une room collaborative."""
     room = Room.objects.get(room_id=room_id)
     if room.mode != "youtube":
         room.mode = "youtube"
@@ -372,6 +404,7 @@ def room_view(request, room_id):
 
 @login_required
 def leave_room(request, room_id):
+    """Quitte une room, ou la ferme si l'utilisateur est le createur."""
     room = Room.objects.get(room_id=room_id)
     if request.user == room.creator:
         _broadcast_room_closed(room.room_id)
@@ -386,6 +419,7 @@ def leave_room(request, room_id):
 @login_required
 @require_POST
 def add_course_note(request, room_id):
+    """Ancien endpoint AJAX pour ajouter une note depuis une room."""
     try:
         room = Room.objects.get(room_id=room_id)
     except Room.DoesNotExist:

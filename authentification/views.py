@@ -1,3 +1,5 @@
+"""Vues d'authentification et de profil."""
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -8,6 +10,7 @@ from .models import UserProfile
 
 
 def signup(request):
+    """Inscrit un utilisateur et enregistre son role professeur/etudiant."""
     if request.method == "POST":
         username = (request.POST.get("username") or "").strip()
         email = (request.POST.get("email") or "").strip()
@@ -47,6 +50,7 @@ def signup(request):
 
 
 def signin(request):
+    """Connecte un utilisateur avec son nom d'utilisateur ou son email."""
     if request.method == "POST":
         identifier = (request.POST.get("username") or "").strip()
         password = request.POST.get("password") or ""
@@ -70,6 +74,7 @@ def signin(request):
 
 
 def signout(request):
+    """Deconnecte l'utilisateur courant."""
     logout(request)
     return redirect("home")
 
@@ -80,11 +85,13 @@ def signout(request):
 
 @login_required
 def profil_view(request):
+    """Affiche le profil et le role de l'utilisateur connecte."""
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
     return render(request, "authentification/profil.html", {"profile": profile})
     
 @login_required
 def supprimer_compte(request):
+    """Supprime le compte courant apres confirmation POST."""
     if request.method == "POST":
         request.user.delete()
         logout(request)

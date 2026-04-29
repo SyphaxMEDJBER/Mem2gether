@@ -231,6 +231,10 @@
 <script src="{% static 'js/course_notes.js' %}"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
+    // La page room concentre la synchronisation cote client:
+    // - polling HTTP pour chat, video et tableau blanc;
+    // - commandes professeur envoyees au serveur;
+    // - application locale de l'etat recu pour les etudiants.
     const currentUser = "{{ request.user.username }}";
     const roomId = "{{ room.room_id }}";
     const syncStateUrl = `/rooms/${roomId}/sync-state/`;
@@ -427,6 +431,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
     async function pushWhiteboardState(image) {
+        // Le professeur envoie un snapshot PNG complet du canvas.
+        // Les etudiants le relisent via requestWhiteboardSync().
         if (!isTeacher) return null;
         const response = await fetch(whiteboardStateUrl, {
             method: "POST",
@@ -880,6 +886,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function initWhiteboard() {
+        // Le canvas est modifiable uniquement par le professeur.
+        // Les etudiants affichent seulement le dernier snapshot serveur.
         const ctx = whiteboardCanvas.getContext("2d");
         if (!ctx) return;
         ctx.fillStyle = "#fff";
